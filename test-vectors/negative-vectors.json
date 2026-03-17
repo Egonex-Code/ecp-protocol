@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "description": "Negative vectors that validate robust rejection/handling of malformed or unauthenticated inputs.",
+  "vectors": [
+    {
+      "id": "neg-uet-invalid-length-001",
+      "kind": "try-decode",
+      "inputHex": "00000000000000",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "UET must be exactly 8 bytes."
+    },
+    {
+      "id": "neg-envelope-invalid-magic-002",
+      "kind": "try-decode",
+      "inputHex": "0000010003780001020304050607086553F1000000080C000FA4C0E40000",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "Envelope magic must be 0xEC50."
+    },
+    {
+      "id": "neg-envelope-invalid-version-003",
+      "kind": "try-decode",
+      "inputHex": "EC50020003780001020304050607086553F1000000080C000FA4C0E40000",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "Envelope version must be 0x01."
+    },
+    {
+      "id": "neg-envelope-truncated-header-004",
+      "kind": "try-decode",
+      "inputHex": "EC500100037800010203",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "Input shorter than minimum envelope header."
+    },
+    {
+      "id": "neg-envelope-payload-length-mismatch-005",
+      "kind": "try-decode",
+      "inputHex": "EC50010003780001020304050607086553F1000000100C000FA4C0E40000",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "PayloadLength field does not match actual payload bytes."
+    },
+    {
+      "id": "neg-envelope-derived-hmaclen-5-006",
+      "kind": "try-decode",
+      "inputHex": "EC50010003780001020304050607086553F1000000080C000FA4C0E400000102030405",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "Derived HMAC length 5 is outside allowed range (0 or 8-16)."
+    },
+    {
+      "id": "neg-envelope-length-short-007",
+      "kind": "try-decode",
+      "inputHex": "EC50010003780001020304050607086553F1000000080C000FA4C0E400",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "Truncated envelope payload/body."
+    },
+    {
+      "id": "neg-envelope-length-long-008",
+      "kind": "try-decode",
+      "inputHex": "EC50010003780001020304050607086553F1000000080C000FA4C0E4000000",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "Extra trailing byte yields invalid derived HMAC length."
+    },
+    {
+      "id": "neg-envelope-wrong-key-verify-009",
+      "kind": "try-decode-envelope",
+      "inputHex": "EC50010303780101020304050607086553F1000000080C000FA4C0E400003A034F4B73B4D65E5B4AF650",
+      "input": {
+        "hmacKeyHex": "F0E1D2C3B4A5968778695A4B3C2D1E0F00112233445566778899AABBCCDDEEFF",
+        "hmacLength": 12
+      },
+      "expected": {
+        "tryDecodeEnvelope": true,
+        "isValid": false
+      },
+      "reason": "Message can parse but authentication must fail with wrong key."
+    },
+    {
+      "id": "neg-random-garbage-010",
+      "kind": "try-decode",
+      "inputHex": "DEADBEEF00010203FF",
+      "expected": {
+        "tryDecode": false
+      },
+      "reason": "Non-ECP random payload must be safely rejected."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Centralized versioning -->
+    <Version>2.0.5</Version>
+    <AssemblyVersion>2.0.5.0</AssemblyVersion>
+    <FileVersion>2.0.5.0</FileVersion>
+
+    <!-- Package metadata (free tier) -->
+    <Authors>Egonex S.R.L.</Authors>
+    <Company>Egonex S.R.L.</Company>
+    <Product>ECP-SDK</Product>
+    <Description>Emergency Communication Protocol - Binary protocol for critical emergency communications. 8-byte token format and compact signed envelope.</Description>
+    <Copyright>Copyright © 2026 Egonex S.R.L.</Copyright>
+    <PackageTags>ecp;emergency;protocol;binary;safety;iot;critical-infrastructure</PackageTags>
+    <PackageProjectUrl>https://egonex-group.com/ecp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Egonex-Code/ecp-protocol</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+    <!-- Build settings -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- CA1711: [Flags] enums conventionally use the "Flags" suffix -->
+    <NoWarn>$(NoWarn);CA1711</NoWarn>
+    <WarningLevel>7</WarningLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>8.0-recommended</AnalysisLevel>
+
+    <!-- Deterministic and reproducible builds -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(Configuration)' == 'Release'">true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>embedded</DebugType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="\" Link="icon.png" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

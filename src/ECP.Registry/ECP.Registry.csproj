@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ECP.Core\ECP.Core.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <RootNamespace>ECP.Registry</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Dictionary-based semantic compression with multilingual templates for alert payloads. Reduces message size by an additional 30-50% on top of binary encoding.</Description>
+    <PackageTags>ecp;emergency;compression;dictionary;multilingual;templates;payload;bandwidth-optimization;binary</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

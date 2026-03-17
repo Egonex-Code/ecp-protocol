@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "description": "Deterministic UET encode vectors for cross-language interoperability.",
+  "vectors": [
+    {
+      "id": "uet-fire-critical-001",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 0,
+        "priority": 3,
+        "actionFlags": 0,
+        "zoneHash": 1001,
+        "timestampMinutes": 12345,
+        "confirmHash": 0
+      },
+      "expectedHex": "0C000FA4C0E40000",
+      "expectedBase64": "DAAPpMDkAAA=",
+      "notes": "Fire + Critical, no actions, no confirm."
+    },
+    {
+      "id": "uet-security-high-flags-002",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 5,
+        "priority": 2,
+        "actionFlags": 19,
+        "zoneHash": 48879,
+        "timestampMinutes": 54321,
+        "confirmHash": 174762
+      },
+      "expectedHex": "584EFBBF50C6AAAA",
+      "expectedBase64": "WE77v1DGqqo=",
+      "notes": "Security + High, mixed action flags, non-zero confirm hash."
+    },
+    {
+      "id": "uet-allclear-low-allflags-003",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 8,
+        "priority": 0,
+        "actionFlags": 255,
+        "zoneHash": 1,
+        "timestampMinutes": 1,
+        "confirmHash": 262143
+      },
+      "expectedHex": "83FC00040007FFFF",
+      "expectedBase64": "g/wABAAH//8=",
+      "notes": "All-clear with max flags and max 18-bit confirm hash."
+    },
+    {
+      "id": "uet-custom1-medium-004",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 10,
+        "priority": 1,
+        "actionFlags": 36,
+        "zoneHash": 65535,
+        "timestampMinutes": 65535,
+        "confirmHash": 1
+      },
+      "expectedHex": "A493FFFFFFFC0001",
+      "expectedBase64": "pJP////8AAE=",
+      "notes": "Upper-bound timestamp and zone, small confirm hash."
+    },
+    {
+      "id": "uet-reserved-critical-max-005",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 15,
+        "priority": 3,
+        "actionFlags": 255,
+        "zoneHash": 65535,
+        "timestampMinutes": 65535,
+        "confirmHash": 262143
+      },
+      "expectedHex": "FFFFFFFFFFFFFFFF",
+      "expectedBase64": "//////////8=",
+      "notes": "All bit fields at max value."
+    },
+    {
+      "id": "uet-zero-min-006",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 0,
+        "priority": 0,
+        "actionFlags": 0,
+        "zoneHash": 0,
+        "timestampMinutes": 0,
+        "confirmHash": 0
+      },
+      "expectedHex": "0000000000000000",
+      "expectedBase64": "AAAAAAAAAAA=",
+      "notes": "All bit fields at minimum value."
+    },
+    {
+      "id": "uet-confirmhash-nonzero-007",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 2,
+        "priority": 1,
+        "actionFlags": 0,
+        "zoneHash": 4660,
+        "timestampMinutes": 22136,
+        "confirmHash": 109517
+      },
+      "expectedHex": "240048D159E1ABCD",
+      "expectedBase64": "JABI0Vnhq80=",
+      "notes": "Focused vector for non-zero confirm hash validation."
+    },
+    {
+      "id": "uet-bitlayout-reference-008",
+      "kind": "uet-encode",
+      "input": {
+        "emergencyType": 5,
+        "priority": 2,
+        "actionFlags": 172,
+        "zoneHash": 4660,
+        "timestampMinutes": 22136,
+        "confirmHash": 174762
+      },
+      "expectedHex": "5AB048D159E2AAAA",
+      "expectedBase64": "WrBI0Vniqqo=",
+      "notes": "Reference vector aligned with internal bit-layout checks."
+    }
+  ]
+}

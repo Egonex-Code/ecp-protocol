@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "description": "Deterministic truncated HMAC-SHA256 vectors used by ECP Envelope authentication.",
+  "vectors": [
+    {
+      "id": "hmac-data-8-001",
+      "kind": "hmac-compute",
+      "input": {
+        "keyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F",
+        "dataHex": "DEADBEEFCAFEBABE",
+        "hmacLength": 8
+      },
+      "expectedTagHex": "9815E43D048CC88D",
+      "notes": "Minimum supported HMAC length."
+    },
+    {
+      "id": "hmac-data-12-002",
+      "kind": "hmac-compute",
+      "input": {
+        "keyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F",
+        "dataHex": "DEADBEEFCAFEBABE",
+        "hmacLength": 12
+      },
+      "expectedTagHex": "9815E43D048CC88DE7405E98",
+      "notes": "Default ECP HMAC length."
+    },
+    {
+      "id": "hmac-data-16-003",
+      "kind": "hmac-compute",
+      "input": {
+        "keyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F",
+        "dataHex": "DEADBEEFCAFEBABE",
+        "hmacLength": 16
+      },
+      "expectedTagHex": "9815E43D048CC88DE7405E9873F75737",
+      "notes": "Maximum supported HMAC length."
+    },
+    {
+      "id": "hmac-empty-payload-12-004",
+      "kind": "hmac-compute",
+      "input": {
+        "keyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F",
+        "dataHex": "",
+        "hmacLength": 12
+      },
+      "expectedTagHex": "E116AA44F445EA1FE07AF769",
+      "notes": "Validates empty-payload authentication."
+    },
+    {
+      "id": "hmac-zero-length-005",
+      "kind": "hmac-compute",
+      "input": {
+        "keyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F",
+        "dataHex": "DEADBEEFCAFEBABE",
+        "hmacLength": 0
+      },
+      "expectedTagHex": "",
+      "notes": "Unsigned mode returns empty tag."
+    },
+    {
+      "id": "hmac-wrong-key-verify-006",
+      "kind": "hmac-verify",
+      "input": {
+        "keyHex": "F0E1D2C3B4A5968778695A4B3C2D1E0F00112233445566778899AABBCCDDEEFF",
+        "dataHex": "DEADBEEFCAFEBABE",
+        "tagHex": "9815E43D048CC88DE7405E98"
+      },
+      "expectedVerify": false,
+      "notes": "Wrong key must fail verification."
+    },
+    {
+      "id": "hmac-tampered-data-verify-007",
+      "kind": "hmac-verify",
+      "input": {
+        "keyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F",
+        "dataHex": "DEADBEEFCAFEBABF",
+        "tagHex": "9815E43D048CC88DE7405E98"
+      },
+      "expectedVerify": false,
+      "notes": "Tampered payload must fail verification."
+    }
+  ]
+}

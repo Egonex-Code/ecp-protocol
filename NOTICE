@@ -1,0 +1,15 @@
+ECP Protocol
+Copyright © 2026 Egonex S.R.L.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+ECP is a trademark of Egonex S.R.L. Trademark rights are not granted
+by the Apache-2.0 license.
+Portions of this software may implement technology covered by patent
+applications/patents owned by Egonex S.R.L. Patent rights, if any,
+are granted only as stated in Section 3 of the Apache License 2.0.
+Safety Notice: This software is not certified for life-safety or
+mission-critical deployment. Validation, certification, and regulatory
+compliance are the sole responsibility of the integrator/operator.
+This NOTICE is for attribution/information only and does not modify
+the Apache License 2.0.

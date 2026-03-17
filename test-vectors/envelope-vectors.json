@@ -1,0 +1,177 @@
+{
+  "version": "1.0",
+  "description": "Deterministic Envelope encode/decode vectors, including signed and unsigned flows.",
+  "vectors": [
+    {
+      "id": "env-signed-uet-h12-001",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 3,
+        "priority": 3,
+        "ttl": 120,
+        "keyVersion": 1,
+        "messageId": "0x0102030405060708",
+        "timestampSeconds": 1700000000,
+        "payloadType": 0,
+        "payloadHex": "0C000FA4C0E40000",
+        "hmacLength": 12,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC50010303780101020304050607086553F1000000080C000FA4C0E400003A034F4B73B4D65E5B4AF650",
+      "expectedBase64": "7FABAwN4AQECAwQFBgcIZVPxAAAACAwAD6TA5AAAOgNPS3O01l5bSvZQ",
+      "notes": "Signed envelope carrying UET payload, default HMAC length."
+    },
+    {
+      "id": "env-signed-uet-h8-002",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 3,
+        "priority": 3,
+        "ttl": 120,
+        "keyVersion": 1,
+        "messageId": "0x0102030405060708",
+        "timestampSeconds": 1700000000,
+        "payloadType": 0,
+        "payloadHex": "0C000FA4C0E40000",
+        "hmacLength": 8,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC50010303780101020304050607086553F1000000080C000FA4C0E400003A034F4B73B4D65E",
+      "expectedBase64": "7FABAwN4AQECAwQFBgcIZVPxAAAACAwAD6TA5AAAOgNPS3O01l4=",
+      "notes": "Signed envelope with minimum allowed HMAC length."
+    },
+    {
+      "id": "env-signed-uet-h10-003",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 3,
+        "priority": 3,
+        "ttl": 120,
+        "keyVersion": 1,
+        "messageId": "0x0102030405060708",
+        "timestampSeconds": 1700000000,
+        "payloadType": 0,
+        "payloadHex": "0C000FA4C0E40000",
+        "hmacLength": 10,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC50010303780101020304050607086553F1000000080C000FA4C0E400003A034F4B73B4D65E5B4A",
+      "expectedBase64": "7FABAwN4AQECAwQFBgcIZVPxAAAACAwAD6TA5AAAOgNPS3O01l5bSg==",
+      "notes": "Signed envelope with intermediate HMAC length to prove full 8-16 range."
+    },
+    {
+      "id": "env-signed-uet-h16-004",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 3,
+        "priority": 3,
+        "ttl": 120,
+        "keyVersion": 1,
+        "messageId": "0x0102030405060708",
+        "timestampSeconds": 1700000000,
+        "payloadType": 0,
+        "payloadHex": "0C000FA4C0E40000",
+        "hmacLength": 16,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC50010303780101020304050607086553F1000000080C000FA4C0E400003A034F4B73B4D65E5B4AF650DC800E0B",
+      "expectedBase64": "7FABAwN4AQECAwQFBgcIZVPxAAAACAwAD6TA5AAAOgNPS3O01l5bSvZQ3IAOCw==",
+      "notes": "Signed envelope with maximum allowed HMAC length."
+    },
+    {
+      "id": "env-unsigned-uet-005",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 0,
+        "priority": 3,
+        "ttl": 120,
+        "keyVersion": 0,
+        "messageId": "0x0102030405060708",
+        "timestampSeconds": 1700000000,
+        "payloadType": 0,
+        "payloadHex": "0C000FA4C0E40000",
+        "hmacLength": 0,
+        "hmacKeyHex": ""
+      },
+      "expectedHex": "EC50010003780001020304050607086553F1000000080C000FA4C0E40000",
+      "expectedBase64": "7FABAAN4AAECAwQFBgcIZVPxAAAACAwAD6TA5AAA",
+      "notes": "Unsigned envelope for trusted-only scenarios."
+    },
+    {
+      "id": "env-signed-empty-payload-006",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 0,
+        "priority": 2,
+        "ttl": 30,
+        "keyVersion": 1,
+        "messageId": "0x1111111111111111",
+        "timestampSeconds": 1700000100,
+        "payloadType": 0,
+        "payloadHex": "",
+        "hmacLength": 12,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC500100021E0111111111111111116553F16400000044049575B07C04F15CCD31FA",
+      "expectedBase64": "7FABAAIeARERERERERERZVPxZAAAAEQElXWwfATxXM0x+g==",
+      "notes": "Signed envelope with empty payload."
+    },
+    {
+      "id": "env-signed-text-payload-007",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 0,
+        "priority": 2,
+        "ttl": 45,
+        "keyVersion": 2,
+        "messageId": "0x2222222222222222",
+        "timestampSeconds": 1700000200,
+        "payloadType": 0,
+        "payloadHex": "464952452047415445204232",
+        "hmacLength": 12,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC500100022D0222222222222222226553F1C800000C464952452047415445204232495946439E638D8C76D187E7",
+      "expectedBase64": "7FABAAItAiIiIiIiIiIiZVPxyAAADEZJUkUgR0FURSBCMklZRkOeY42MdtGH5w==",
+      "notes": "Signed envelope with textual payload bytes."
+    },
+    {
+      "id": "env-flags-needsconfirm-broadcast-008",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 3,
+        "priority": 2,
+        "ttl": 60,
+        "keyVersion": 3,
+        "messageId": "0x3333333333333333",
+        "timestampSeconds": 1700000300,
+        "payloadType": 1,
+        "payloadHex": "01020304",
+        "hmacLength": 12,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC500103023C0333333333333333336553F22C01000401020304A3D6C732A48CE4021B37E64B",
+      "expectedBase64": "7FABAwI8AzMzMzMzMzMzZVPyLAEABAECAwSj1scypIzkAhs35ks=",
+      "notes": "Flags coverage vector for needs-confirmation + broadcast."
+    },
+    {
+      "id": "env-keyversion-2-009",
+      "kind": "envelope-encode",
+      "input": {
+        "flags": 0,
+        "priority": 1,
+        "ttl": 20,
+        "keyVersion": 2,
+        "messageId": "0x4444444444444444",
+        "timestampSeconds": 1700000400,
+        "payloadType": 5,
+        "payloadHex": "AA55",
+        "hmacLength": 12,
+        "hmacKeyHex": "00112233445566778899AABBCCDDEEFF102132435465768798A9BACBDCEDFE0F"
+      },
+      "expectedHex": "EC50010001140244444444444444446553F290050002AA55A23D840E30CAB37F45391F27",
+      "expectedBase64": "7FABAAEUAkREREREREREZVPykAUAAqpVoj2EDjDKs39FOR8n",
+      "notes": "Key-version routing compatibility vector."
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in ECP
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug.
+        Please fill out the sections below to help us understand and reproduce the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: "When I call Ecp.Alert() with severity 0, an ArgumentException is thrown."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the behavior.
+      placeholder: |
+        1. Install ECP.Core (the version you are using)
+        2. Call Ecp.Alert(severity: 0, category: 1, zoneHash: 100)
+        3. See exception
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened. Include the full exception message and stack trace if applicable.
+    validations:
+      required: true
+
+  - type: input
+    id: ecp-version
+    attributes:
+      label: ECP package and version
+      description: Which ECP package(s) and version are you using?
+      placeholder: "ECP.Core x.y.z"
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet-version
+    attributes:
+      label: .NET version
+      description: "Output of: dotnet --version"
+      placeholder: "8.0.x"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other context, logs, or screenshots that might help.
+    validations:
+      required: false

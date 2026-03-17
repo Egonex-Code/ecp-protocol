@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ECP.DependencyInjection</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Dependency injection extensions for Microsoft.Extensions.DependencyInjection. Registers protocol, key management, tenant, privacy, and strategy services via AddEcpCore().</Description>
+    <PackageTags>ecp;dependency-injection;di;microsoft-extensions;aspnetcore;service-collection;configuration;emergency</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ECP.Core\ECP.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>

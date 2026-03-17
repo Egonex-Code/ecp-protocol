@@ -1,0 +1,66 @@
+name: Feature Request
+description: Suggest a new feature or improvement for ECP
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement.
+        Please describe your idea so we can evaluate it properly.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What problem does this feature solve? Or what use case does it enable?
+      placeholder: "I need to send alerts over LoRa, but there is no transport adapter for it."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe how you think this could work. Include API examples if possible.
+      placeholder: |
+        A new ECP.Transport.LoRa package that implements IEcpTransport
+        for LoRa radio communication.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered any alternative solutions or workarounds?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: packages
+    attributes:
+      label: Related package(s)
+      description: Which ECP package(s) would this feature affect?
+      multiple: true
+      options:
+        - ECP.Core
+        - ECP.Registry
+        - ECP.Cascade
+        - ECP.Standard
+        - ECP.DependencyInjection
+        - ECP.Transport.Abstractions
+        - ECP.Transport.WebSocket
+        - ECP.Transport.SignalR
+        - ECP.Compatibility
+        - New package
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any other context, mockups, or references that might help.
+    validations:
+      required: false

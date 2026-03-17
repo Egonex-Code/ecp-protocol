@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ECP.Transport.WebSocket</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>WebSocket transport for real-time binary delivery, capability handshake, configurable reconnect policy, and keep-alive tuning.</Description>
+    <PackageTags>ecp;transport;websocket;realtime;binary;reconnect;keepalive;handshake;emergency</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ECP.Core\ECP.Core.csproj" />
+    <ProjectReference Include="..\ECP.Transport.Abstractions\ECP.Transport.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>

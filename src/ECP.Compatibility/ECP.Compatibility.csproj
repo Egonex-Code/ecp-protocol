@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ECP.Compatibility</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>JSON migration bridge that converts existing alert payloads to compact binary format and supports compatibility decoding from mixed JSON or protocol streams.</Description>
+    <PackageTags>ecp;json;migration;compatibility;bridge;legacy;interoperability;binary;emergency</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ECP.Core\ECP.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ECP.Core</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Binary emergency protocol encoder/decoder with 8-byte tokens, HMAC-SHA256 signed envelopes, and zero-allocation paths. Zero dependencies. Start here.</Description>
+    <PackageTags>ecp;emergency;protocol;binary;encoder;decoder;hmac;zero-allocation;iot;safety;critical-infrastructure</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

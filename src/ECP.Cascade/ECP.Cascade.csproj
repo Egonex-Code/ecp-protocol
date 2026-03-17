@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ECP.Cascade</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Adaptive multi-node broadcast with trust-based fan-out, O(log N) propagation, confirmation aggregation, and geo-quorum primitives for resilient delivery.</Description>
+    <PackageTags>ecp;emergency;broadcast;p2p;fan-out;distributed;confirmation;quorum;resilience</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ECP.Core\ECP.Core.csproj" />
+  </ItemGroup>
+
+</Project>

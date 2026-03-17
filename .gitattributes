@@ -1,0 +1,28 @@
+# Normalize text files in repository
+* text=auto
+
+# Keep source and docs with LF for consistency
+*.cs text eol=lf
+*.csproj text eol=lf
+*.props text eol=lf
+*.targets text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+
+# Visual Studio solution files are conventionally CRLF
+*.sln text eol=crlf
+
+# Binary assets/packages
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.nupkg binary
+*.snupkg binary
+*.dll binary
+*.exe binary
+*.pdb binary

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ECP.Transport.Abstractions</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Transport interfaces for sending and receiving raw protocol bytes. Build custom adapters for WebSocket, BLE, LoRa, satellite, or any proprietary channel.</Description>
+    <PackageTags>ecp;transport;abstraction;interfaces;websocket;ble;lora;satellite;iot;emergency</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ECP.Core\ECP.Core.csproj" />
+  </ItemGroup>
+
+</Project>

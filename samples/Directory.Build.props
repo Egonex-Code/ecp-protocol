@@ -1,0 +1,7 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+  <PropertyGroup>
+    <!-- Samples are executable apps; disable reference assemblies to avoid AV false positives on refint artifacts. -->
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+  </PropertyGroup>
+</Project>

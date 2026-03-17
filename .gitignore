@@ -1,0 +1,24 @@
+bin/
+obj/
+BenchmarkDotNet.Artifacts/
+nupkg/
+artifacts/
+TestResults/
+*.nupkg
+*.snupkg
+*.trx
+*.user
+.vs/
+.idea/
+*.suo
+
+# OS
+Desktop.ini
+Thumbs.db
+.DS_Store
+~$*
+
+# Cursor / VS Code
+.cursor/
+.cursorrules
+.vscode/

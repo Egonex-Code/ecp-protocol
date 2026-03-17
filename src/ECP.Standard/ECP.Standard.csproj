@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ECP.Standard</RootNamespace>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Full-stack distribution that bundles Core, Registry, Cascade, and DI setup. Use one reference to enable encoding, compression, adaptive broadcast, and service registration.</Description>
+    <PackageTags>ecp;emergency;protocol;binary;meta-package;full-stack;registry;cascade;dependency-injection;aspnetcore</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ECP.Core\ECP.Core.csproj" />
+    <ProjectReference Include="..\ECP.Registry\ECP.Registry.csproj" />
+    <ProjectReference Include="..\ECP.Cascade\ECP.Cascade.csproj" />
+    <ProjectReference Include="..\ECP.DependencyInjection\ECP.DependencyInjection.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>
