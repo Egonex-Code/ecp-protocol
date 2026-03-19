@@ -77,6 +77,7 @@ byte[] alert = Ecp.Alert(EmergencyType.Fire, zoneHash: 1, priority: EcpPriority.
 ```
 
 That's it. `alert` contains the emergency type, priority, zone, timestamp, and action flags in 8 bytes.
+Want to see the size difference? Run `dotnet run` in `samples/ProofCard` for a visual comparison.
 
 ---
 
