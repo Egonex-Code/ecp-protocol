@@ -311,6 +311,9 @@ dotnet run</div>
         animateMetric("ecp", CANONICAL.ecp, max, 560);
       }
 
+      const refCode = parseRefCode();
+      trackProofVisit(refCode);
+
       function resetBars() {
         ["cap", "json", "ecp"].forEach(function (key) {
           document.getElementById(key + "-bar").style.width = "0%";
@@ -343,6 +346,55 @@ dotnet run</div>
         setTimeout(function () {
           barEl.style.width = widthPct + "%";
         }, delayMs);
+      }
+
+      function parseRefCode() {
+        const params = new URLSearchParams(window.location.search);
+        const rawRef = params.get("ref");
+        if (!rawRef) {
+          return "";
+        }
+
+        const normalized = rawRef.trim().toLowerCase();
+        if (!/^[a-z0-9_-]{1,32}$/.test(normalized)) {
+          return "";
+        }
+
+        return normalized;
+      }
+
+      function shouldTrackVisit() {
+        const doNotTrack = String(
+          navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack || ""
+        ).toLowerCase();
+
+        return doNotTrack !== "1" && doNotTrack !== "yes";
+      }
+
+      function trackProofVisit(ref) {
+        if (!shouldTrackVisit()) {
+          return;
+        }
+
+        const namespace = "ecp-proof-v1";
+        const keys = ["total"];
+        if (ref) {
+          keys.push("ref-" + ref);
+        }
+
+        keys.forEach(function (key) {
+          const apiKey = namespace + "-" + key;
+          const endpoint =
+            "https://countapi.mileshilliard.com/api/v1/hit/" +
+            encodeURIComponent(apiKey);
+
+          fetch(endpoint, {
+            method: "GET",
+            cache: "no-store"
+          }).catch(function () {
+            // Ignore telemetry failures to keep the page resilient.
+          });
+        });
       }
 
       function buildTimestampRunId() {
