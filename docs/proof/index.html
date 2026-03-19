@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ECP Proof - 669 vs 8</title>
   <meta name="description" content="Canonical ECP comparison: CAP XML 669 bytes, JSON 270 bytes, ECP UET 8 bytes.">
+  <meta property="og:title" content="669 bytes for a fire alert. ECP does it in 8.">
+  <meta property="og:description" content="CAP XML: 669 bytes. JSON: 270 bytes. ECP: 8 bytes. Same fire alert. Verify it yourself.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://egonex-code.github.io/ecp-protocol/proof/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="669 bytes for a fire alert. ECP does it in 8.">
+  <meta name="twitter:description" content="CAP XML: 669 bytes. JSON: 270 bytes. ECP: 8 bytes. Same fire alert. Verify it yourself.">
   <style>
     :root {
       --bg: #0a1020;
@@ -230,25 +237,25 @@
         <article class="metric" data-key="cap" data-value="669">
           <div class="metric-head">
             <span class="label">CAP XML</span>
-            <span class="value" id="cap-value">0 bytes</span>
+            <span class="value" id="cap-value">669 bytes</span>
           </div>
-          <div class="bar-wrap"><div class="bar cap" id="cap-bar"></div></div>
+          <div class="bar-wrap"><div class="bar cap" id="cap-bar" style="width:100%"></div></div>
         </article>
 
         <article class="metric" data-key="json" data-value="270">
           <div class="metric-head">
             <span class="label">JSON</span>
-            <span class="value" id="json-value">0 bytes</span>
+            <span class="value" id="json-value">270 bytes</span>
           </div>
-          <div class="bar-wrap"><div class="bar json" id="json-bar"></div></div>
+          <div class="bar-wrap"><div class="bar json" id="json-bar" style="width:40.4%"></div></div>
         </article>
 
         <article class="metric" data-key="ecp" data-value="8">
           <div class="metric-head">
             <span class="label">ECP UET</span>
-            <span class="value" id="ecp-value">0 bytes</span>
+            <span class="value" id="ecp-value">8 bytes</span>
           </div>
-          <div class="bar-wrap"><div class="bar ecp" id="ecp-bar"></div></div>
+          <div class="bar-wrap"><div class="bar ecp" id="ecp-bar" style="width:1.2%"></div></div>
         </article>
       </section>
 
@@ -296,9 +303,19 @@ dotnet run</div>
       document.getElementById("proof-hash").textContent = CANONICAL.proofHash;
       document.getElementById("impact-text").textContent = reduction + "% less data";
 
-      animateMetric("cap", CANONICAL.cap, max, 0);
-      animateMetric("json", CANONICAL.json, max, 280);
-      animateMetric("ecp", CANONICAL.ecp, max, 560);
+      const canAnimate = typeof requestAnimationFrame === "function";
+      if (canAnimate) {
+        resetBars();
+        animateMetric("cap", CANONICAL.cap, max, 0);
+        animateMetric("json", CANONICAL.json, max, 280);
+        animateMetric("ecp", CANONICAL.ecp, max, 560);
+      }
+
+      function resetBars() {
+        ["cap", "json", "ecp"].forEach(function (key) {
+          document.getElementById(key + "-bar").style.width = "0%";
+        });
+      }
 
       const copyBtn = document.getElementById("copy-btn");
       const copyStatus = document.getElementById("copy-status");
@@ -321,32 +338,11 @@ dotnet run</div>
       });
 
       function animateMetric(key, targetValue, maxValue, delayMs) {
-        const valueEl = document.getElementById(key + "-value");
         const barEl = document.getElementById(key + "-bar");
-        const durationMs = 1300;
-        const startAt = performance.now() + delayMs;
-
-        requestAnimationFrame(function step(now) {
-          if (now < startAt) {
-            requestAnimationFrame(step);
-            return;
-          }
-
-          const progress = Math.min((now - startAt) / durationMs, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          const current = Math.round(targetValue * eased);
-          const widthPct = (current / maxValue) * 100;
-
-          valueEl.textContent = current + " bytes";
+        const widthPct = (targetValue / maxValue) * 100;
+        setTimeout(function () {
           barEl.style.width = widthPct + "%";
-
-          if (progress < 1) {
-            requestAnimationFrame(step);
-          } else {
-            valueEl.textContent = targetValue + " bytes";
-            barEl.style.width = ((targetValue / maxValue) * 100) + "%";
-          }
-        });
+        }, delayMs);
       }
 
       function buildTimestampRunId() {
