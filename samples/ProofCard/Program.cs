@@ -24,7 +24,9 @@ ValidateGeneratedPayloads(capXml, json);
 byte[] ecpAlert = Ecp.Alert(
     EmergencyType.Fire,
     zoneHash: scenario.ZoneHash,
-    priority: EcpPriority.Critical);
+    priority: EcpPriority.Critical,
+    timestampMinutes: 12345,
+    confirmHash: 0);
 
 int capBytes = Encoding.UTF8.GetByteCount(capXml);
 int jsonBytes = Encoding.UTF8.GetByteCount(json);

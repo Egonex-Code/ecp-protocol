@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ECP Proof - 669 vs 8</title>
+  <meta name="description" content="Canonical ECP comparison: CAP XML 669 bytes, JSON 270 bytes, ECP UET 8 bytes.">
+  <style>
+    :root {
+      --bg: #0a1020;
+      --bg-soft: #141d35;
+      --text: #e9eeff;
+      --muted: #a8b2d5;
+      --cap: #ff6b6b;
+      --json: #ffd166;
+      --ecp: #31e08b;
+      --accent: #67a2ff;
+      --border: rgba(255, 255, 255, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(103, 162, 255, 0.22), transparent 40%),
+        radial-gradient(circle at 85% 10%, rgba(49, 224, 139, 0.12), transparent 35%),
+        linear-gradient(160deg, #050a18 0%, #0a1020 40%, #121f3f 100%);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(980px, 100%);
+      background: linear-gradient(160deg, rgba(20, 29, 53, 0.95), rgba(8, 13, 28, 0.96));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+    }
+
+    .inner {
+      padding: 28px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      line-height: 1.16;
+      font-size: clamp(1.55rem, 3vw, 2.3rem);
+      letter-spacing: -0.02em;
+    }
+
+    .sub {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .metrics {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .metric-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .label {
+      font-size: 0.94rem;
+      color: #d5defc;
+      font-weight: 600;
+    }
+
+    .value {
+      font-size: 1.36rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar-wrap {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .bar {
+      width: 0;
+      height: 100%;
+      border-radius: 999px;
+      transition: width 220ms linear;
+    }
+
+    .bar.cap { background: linear-gradient(90deg, #ff7a7a, #ff4f7b); }
+    .bar.json { background: linear-gradient(90deg, #ffd166, #f9b234); }
+    .bar.ecp { background: linear-gradient(90deg, #39e49e, #20be79); }
+
+    .impact {
+      margin: 18px 0 22px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(49, 224, 139, 0.07);
+    }
+
+    .impact strong {
+      font-size: 1.22rem;
+    }
+
+    .meta {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 18px;
+      font-size: 0.94rem;
+      color: var(--muted);
+    }
+
+    .meta code {
+      color: #f0f5ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    button,
+    .link-btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-weight: 700;
+      font-size: 0.96rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button {
+      background: #4f7fff;
+      color: #fff;
+    }
+
+    button:hover {
+      filter: brightness(1.05);
+    }
+
+    .link-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .copy-status {
+      min-height: 1.2em;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+      border-top: 1px dashed var(--border);
+      padding-top: 12px;
+    }
+
+    .cli {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #c8d4fb;
+      font-size: 0.88rem;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 640px) {
+      .inner {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="inner">
+      <div class="eyebrow">ECP Proof Card - Canonical FIRE Scenario</div>
+      <h1>Why does it take 669 bytes to tell a computer there is a fire?</h1>
+      <p class="sub">ECP does the same core machine alert in 8 bytes.</p>
+
+      <section class="metrics" aria-label="Byte comparison">
+        <article class="metric" data-key="cap" data-value="669">
+          <div class="metric-head">
+            <span class="label">CAP XML</span>
+            <span class="value" id="cap-value">0 bytes</span>
+          </div>
+          <div class="bar-wrap"><div class="bar cap" id="cap-bar"></div></div>
+        </article>
+
+        <article class="metric" data-key="json" data-value="270">
+          <div class="metric-head">
+            <span class="label">JSON</span>
+            <span class="value" id="json-value">0 bytes</span>
+          </div>
+          <div class="bar-wrap"><div class="bar json" id="json-bar"></div></div>
+        </article>
+
+        <article class="metric" data-key="ecp" data-value="8">
+          <div class="metric-head">
+            <span class="label">ECP UET</span>
+            <span class="value" id="ecp-value">0 bytes</span>
+          </div>
+          <div class="bar-wrap"><div class="bar ecp" id="ecp-bar"></div></div>
+        </article>
+      </section>
+
+      <section class="impact" aria-live="polite">
+        <strong id="impact-text">98.8% less data</strong>
+        <div>Same canonical FIRE vector. Visualized in seconds.</div>
+      </section>
+
+      <section class="meta">
+        <div>Run ID: <code id="run-id">#pending</code></div>
+        <div>Proof hash (CLI canonical): <code id="proof-hash">8a5340fce836</code></div>
+      </section>
+
+      <section class="actions">
+        <button id="copy-btn" type="button">Copy result</button>
+        <a class="link-btn" href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/ProofCard" target="_blank" rel="noopener noreferrer">Run it yourself (CLI)</a>
+      </section>
+      <div class="copy-status" id="copy-status"></div>
+
+      <p class="note">
+        These values are live-measured in the CLI ProofCard tool. This page shows the canonical FIRE scenario for instant sharing.
+        Clone the repository to verify independently, including the raw payloads via <code>-- --show-payload</code>.
+      </p>
+
+      <div class="cli">git clone https://github.com/Egonex-Code/ecp-protocol
+cd ecp-protocol/samples/ProofCard
+dotnet run</div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const CANONICAL = {
+        cap: 669,
+        json: 270,
+        ecp: 8,
+        proofHash: "8a5340fce836"
+      };
+
+      const max = CANONICAL.cap;
+      const reduction = ((1 - (CANONICAL.ecp / CANONICAL.cap)) * 100).toFixed(1);
+      const runId = buildTimestampRunId();
+
+      document.getElementById("run-id").textContent = runId;
+      document.getElementById("proof-hash").textContent = CANONICAL.proofHash;
+      document.getElementById("impact-text").textContent = reduction + "% less data";
+
+      animateMetric("cap", CANONICAL.cap, max, 0);
+      animateMetric("json", CANONICAL.json, max, 280);
+      animateMetric("ecp", CANONICAL.ecp, max, 560);
+
+      const copyBtn = document.getElementById("copy-btn");
+      const copyStatus = document.getElementById("copy-status");
+
+      copyBtn.addEventListener("click", async function () {
+        const shareText = [
+          "I ran ECP Proof " + runId + ":",
+          "CAP XML " + CANONICAL.cap + "B | JSON " + CANONICAL.json + "B | ECP " + CANONICAL.ecp + "B.",
+          reduction + "% less data vs CAP. Proof " + CANONICAL.proofHash + ".",
+          "https://egonex-code.github.io/ecp-protocol/proof",
+          "#ECP #OpenSource #DotNet"
+        ].join("\n");
+
+        try {
+          await navigator.clipboard.writeText(shareText);
+          copyStatus.textContent = "Copied. Paste it where you want to share.";
+        } catch (error) {
+          copyStatus.textContent = "Copy failed. You can still select and copy manually.";
+        }
+      });
+
+      function animateMetric(key, targetValue, maxValue, delayMs) {
+        const valueEl = document.getElementById(key + "-value");
+        const barEl = document.getElementById(key + "-bar");
+        const durationMs = 1300;
+        const startAt = performance.now() + delayMs;
+
+        requestAnimationFrame(function step(now) {
+          if (now < startAt) {
+            requestAnimationFrame(step);
+            return;
+          }
+
+          const progress = Math.min((now - startAt) / durationMs, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const current = Math.round(targetValue * eased);
+          const widthPct = (current / maxValue) * 100;
+
+          valueEl.textContent = current + " bytes";
+          barEl.style.width = widthPct + "%";
+
+          if (progress < 1) {
+            requestAnimationFrame(step);
+          } else {
+            valueEl.textContent = targetValue + " bytes";
+            barEl.style.width = ((targetValue / maxValue) * 100) + "%";
+          }
+        });
+      }
+
+      function buildTimestampRunId() {
+        const now = new Date();
+        const yyyy = String(now.getUTCFullYear());
+        const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+        const dd = String(now.getUTCDate()).padStart(2, "0");
+        const hh = String(now.getUTCHours()).padStart(2, "0");
+        const mi = String(now.getUTCMinutes()).padStart(2, "0");
+        const ss = String(now.getUTCSeconds()).padStart(2, "0");
+        return "#web-" + yyyy + mm + dd + "-" + hh + mi + ss;
+      }
+    })();
+  </script>
+</body>
+</html>
