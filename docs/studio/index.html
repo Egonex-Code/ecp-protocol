@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ECP Studio — Binary Protocol Decoder, Builder & Comparator</title>
+  <meta name="description" content="Decode binary payloads, compare protocol sizes (JSON vs Protobuf vs ECP vs CAP XML), generate C# code, and verify claims — all in your browser. No install needed.">
+  <meta name="keywords" content="binary protocol, JSON vs Protobuf, protocol comparison, binary decoder, ECP, CAP XML, IoT protocol, payload size tool">
+  <meta property="og:title" content="ECP Studio — Decode, Build, Compare Binary Protocols">
+  <meta property="og:description" content="The jwt.io for binary protocols. Paste hex, decode instantly. Compare JSON vs ECP vs CAP.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://egonex-code.github.io/ecp-protocol/studio/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ECP Studio — Decode, Build, Compare Binary Protocols">
+  <meta name="twitter:description" content="Paste hex or base64 and verify deterministic ECP vectors directly in your browser.">
+  <link rel="stylesheet" href="./studio.css">
+</head>
+<body>
+  <header class="top-shell">
+    <div class="shell-inner">
+      <a class="brand-link" href="../proof/" aria-label="Back to ECP Proof">
+        <span class="brand-chip">ECP Studio</span>
+        <span class="brand-sub">Developer tooling for deterministic protocol checks</span>
+      </a>
+      <nav class="top-nav" aria-label="Primary links">
+        <a href="../proof/">Proof</a>
+        <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="studio-main">
+    <section class="hero-stack" aria-labelledby="studio-title">
+      <header class="section-header">
+        <p class="eyebrow">Don't trust us. Verify.</p>
+        <h1 id="studio-title">Decode and verify ECP UET payloads in seconds</h1>
+        <p>
+          Same visual language as Proof, deeper utility for real debugging workflows.
+          Autoplay shows the canonical evidence chain, while Paste &amp; Decode validates your payload instantly.
+        </p>
+      </header>
+
+      <article class="card autoplay-card" aria-labelledby="autoplay-title">
+        <header class="card-header">
+          <h2 id="autoplay-title">Autoplay evidence (Phase A)</h2>
+          <p>Canonical vector walkthrough with deterministic bytes from public test vectors.</p>
+        </header>
+
+        <div class="autoplay-layout">
+          <ol id="autoplay-steps" class="autoplay-steps" aria-label="Autoplay steps"></ol>
+
+          <section class="autoplay-panel" aria-live="polite">
+            <p id="autoplay-step-title" class="autoplay-step-title"></p>
+            <p id="autoplay-step-description" class="autoplay-step-description"></p>
+            <div id="autoplay-evidence" class="autoplay-evidence"></div>
+            <p id="autoplay-source" class="autoplay-source"></p>
+          </section>
+        </div>
+
+        <div class="autoplay-controls">
+          <button id="autoplay-play-pause" type="button" class="btn-primary">Pause</button>
+          <label for="autoplay-speed">Speed</label>
+          <select id="autoplay-speed" aria-label="Autoplay speed">
+            <option value="0.5">0.5x</option>
+            <option value="1" selected>1x</option>
+            <option value="2">2x</option>
+          </select>
+          <button id="autoplay-reset" type="button" class="btn-secondary">Reset &amp; Replay</button>
+        </div>
+      </article>
+
+      <article class="card decode-card" aria-labelledby="decode-title">
+        <header class="card-header">
+          <h2 id="decode-title">Paste &amp; Decode UET</h2>
+          <p>Accepted formats: hex (with optional spaces/0x), base64, base64url.</p>
+        </header>
+
+        <label for="payload-input" class="field-label">Payload</label>
+        <textarea
+          id="payload-input"
+          rows="3"
+          spellcheck="false"
+          placeholder="Paste hex or base64 to decode instantly, e.g. 0C000FA4C0E40000 or DAAPpMDkAAA="
+          aria-describedby="payload-help"></textarea>
+        <p id="payload-help" class="field-help">
+          Decoder is strict: UET must be exactly 8 bytes (16 hex chars).
+        </p>
+
+        <div class="decode-actions">
+          <button id="decode-button" type="button" class="btn-primary">Decode now</button>
+          <button id="copy-hex-button" type="button" class="btn-secondary" disabled>Copy hex</button>
+          <button id="copy-base64-button" type="button" class="btn-secondary" disabled>Copy base64</button>
+        </div>
+
+        <p id="decode-feedback" class="feedback" aria-live="polite"></p>
+
+        <section id="decode-error-panel" class="message message-error" hidden aria-live="assertive">
+          <h3>Input error</h3>
+          <p><strong>What happened:</strong> <span id="error-what"></span></p>
+          <p><strong>Why:</strong> <span id="error-why"></span></p>
+          <p><strong>How to fix:</strong> <span id="error-fix"></span></p>
+        </section>
+
+        <section id="decode-result-panel" hidden>
+          <div class="status-row">
+            <span id="valid-badge" class="badge badge-success">Valid UET</span>
+            <span id="roundtrip-badge" class="badge badge-success">Round-trip verified</span>
+          </div>
+
+          <div class="raw-grid">
+            <article>
+              <h3>Hex</h3>
+              <code id="decoded-hex"></code>
+            </article>
+            <article>
+              <h3>Base64</h3>
+              <code id="decoded-base64"></code>
+            </article>
+            <article class="raw-grid-wide">
+              <h3>Bit map (64 bits)</h3>
+              <div id="decoded-bit-map" class="bit-map"></div>
+            </article>
+            <article class="raw-grid-wide">
+              <h3>Hex byte map</h3>
+              <div id="decoded-hex-map" class="hex-map"></div>
+            </article>
+          </div>
+
+          <div class="table-wrap">
+            <table class="decoded-table">
+              <thead>
+                <tr>
+                  <th scope="col">Field</th>
+                  <th scope="col">Bits</th>
+                  <th scope="col">Raw value</th>
+                  <th scope="col">Decoded</th>
+                </tr>
+              </thead>
+              <tbody id="decoded-fields-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="verify-block" aria-labelledby="verify-title">
+          <h3 id="verify-title">Verify decoder (core suite)</h3>
+          <p>Runs 8 deterministic vectors with decode + roundtrip checks directly in your browser.</p>
+          <button id="verify-button" type="button" class="btn-primary">Verify core suite (8 vectors)</button>
+          <p id="verify-summary" class="verify-summary" aria-live="polite"></p>
+          <ul id="verify-results" class="verify-results" aria-live="polite"></ul>
+        </section>
+      </article>
+    </section>
+  </main>
+
+  <footer class="studio-footer">
+    <div class="footer-inner">
+      <h2>Resources &amp; Community</h2>
+
+      <p>Explore samples:</p>
+      <nav class="footer-links" aria-label="Sample links">
+        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/01-UetBasics" target="_blank" rel="noopener noreferrer">01-UetBasics</a>
+        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/02-EnvelopeSignedRoundtrip" target="_blank" rel="noopener noreferrer">02-EnvelopeRoundtrip</a>
+        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/03-GenericDecodeRouter" target="_blank" rel="noopener noreferrer">03-DecodeRouter</a>
+        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/04-DiAndKeyRing" target="_blank" rel="noopener noreferrer">04-DI&amp;KeyRing</a>
+      </nav>
+
+      <p>Need support? <a href="https://github.com/Egonex-Code/ecp-protocol/discussions" target="_blank" rel="noopener noreferrer">Ask in GitHub Discussions</a></p>
+      <p>Want to contribute? <a href="https://github.com/Egonex-Code/ecp-protocol/issues/new/choose" target="_blank" rel="noopener noreferrer">Open an issue</a></p>
+      <p>NuGet: <code>dotnet add package ECP.Core</code></p>
+      <p>GitHub: <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">github.com/Egonex-Code/ecp-protocol</a></p>
+      <p>License: Apache 2.0</p>
+      <p>Built by <a href="https://www.egonex-group.com" target="_blank" rel="noopener noreferrer">Egonex S.R.L.</a> — Enterprise emergency communication</p>
+    </div>
+  </footer>
+
+  <script type="module" src="./studio.js"></script>
+</body>
+</html>
