@@ -192,6 +192,17 @@
       color: var(--text);
     }
 
+    .star-btn {
+      background: linear-gradient(90deg, #ffcc4d, #ffb11f);
+      border: 1px solid rgba(255, 204, 77, 0.5);
+      color: #1b1300;
+      font-weight: 800;
+    }
+
+    .star-btn:hover {
+      filter: brightness(1.04);
+    }
+
     .copy-status {
       min-height: 1.2em;
       color: var(--muted);
@@ -272,6 +283,7 @@
       <section class="actions">
         <button id="copy-btn" type="button">Copy result</button>
         <a class="link-btn" href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/ProofCard" target="_blank" rel="noopener noreferrer">Run it yourself (CLI)</a>
+        <a class="link-btn star-btn" id="star-cta-link" href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">Like this? Star on GitHub</a>
       </section>
       <div class="copy-status" id="copy-status"></div>
 
@@ -322,6 +334,7 @@ dotnet run</div>
 
       const copyBtn = document.getElementById("copy-btn");
       const copyStatus = document.getElementById("copy-status");
+      const starCtaLink = document.getElementById("star-cta-link");
 
       copyBtn.addEventListener("click", async function () {
         const shareText = [
@@ -339,6 +352,12 @@ dotnet run</div>
           copyStatus.textContent = "Copy failed. You can still select and copy manually.";
         }
       });
+
+      if (starCtaLink) {
+        starCtaLink.addEventListener("click", function () {
+          trackStarCtaClick();
+        });
+      }
 
       function animateMetric(key, targetValue, maxValue, delayMs) {
         const barEl = document.getElementById(key + "-bar");
@@ -390,10 +409,30 @@ dotnet run</div>
 
           fetch(endpoint, {
             method: "GET",
-            cache: "no-store"
+            cache: "no-store",
+            mode: "no-cors"
           }).catch(function () {
             // Ignore telemetry failures to keep the page resilient.
           });
+        });
+      }
+
+      function trackStarCtaClick() {
+        if (!shouldTrackVisit()) {
+          return;
+        }
+
+        const endpoint =
+          "https://countapi.mileshilliard.com/api/v1/hit/" +
+          encodeURIComponent("ecp-proof-v1-cta-star");
+
+        fetch(endpoint, {
+          method: "GET",
+          cache: "no-store",
+          mode: "no-cors",
+          keepalive: true
+        }).catch(function () {
+          // Ignore telemetry failures to keep the page resilient.
         });
       }
 

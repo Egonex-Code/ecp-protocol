@@ -3,6 +3,9 @@
 ProofCard is a tiny CLI sample that shows a visual size comparison between CAP XML, JSON, and ECP for the default FIRE scenario.
 It is designed to produce a terminal output that is easy to screenshot and share.
 
+> [!TIP]
+> If ProofCard helped, consider [starring the repo](https://github.com/Egonex-Code/ecp-protocol) - it helps other developers find ECP.
+
 ## Run (3 commands)
 
 ```bash

@@ -433,6 +433,8 @@ Test vectors and source tests are available in [`test-vectors/`](https://github.
 
 We're a small team and this is a young protocol. If you find issues, inconsistencies, or have questions about these numbers, we genuinely want to hear from you.
 
+Found it useful? A [star on the repo](https://github.com/Egonex-Code/ecp-protocol) helps other engineers find it - that's the single best way to support the project.
+
 ---
 
 ## Capabilities
