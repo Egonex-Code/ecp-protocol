@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ECP Studio — Binary Protocol Decoder, Builder & Comparator</title>
-  <meta name="description" content="Decode binary payloads, compare protocol sizes (JSON vs Protobuf vs ECP vs CAP XML), generate C# code, and verify claims — all in your browser. No install needed.">
+  <title>ECP Studio - Binary Protocol Decoder, Builder & Comparator</title>
+  <meta name="description" content="Decode binary payloads, compare protocol sizes (JSON vs Protobuf vs ECP vs CAP XML), generate C# code, and verify claims - all in your browser. No install needed.">
   <meta name="keywords" content="binary protocol, JSON vs Protobuf, protocol comparison, binary decoder, ECP, CAP XML, IoT protocol, payload size tool">
-  <meta property="og:title" content="ECP Studio — Decode, Build, Compare Binary Protocols">
+  <meta property="og:title" content="ECP Studio - Decode, Build, Compare Binary Protocols">
   <meta property="og:description" content="The jwt.io for binary protocols. Paste hex, decode instantly. Compare JSON vs ECP vs CAP.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://egonex-code.github.io/ecp-protocol/studio/">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ECP Studio — Decode, Build, Compare Binary Protocols">
+  <meta name="twitter:title" content="ECP Studio - Decode, Build, Compare Binary Protocols">
   <meta name="twitter:description" content="Paste hex or base64 and verify deterministic ECP vectors directly in your browser.">
   <link rel="stylesheet" href="./studio.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
 <body>
   <header class="top-shell">
@@ -42,6 +43,7 @@
       <article class="card decode-card" aria-labelledby="decode-title">
         <header class="card-header">
           <h1 id="decode-title">Paste hex or base64 to decode instantly</h1>
+          <p>Auto-detects UET (8 bytes) and Envelope (22+ bytes, magic 0xEC50).</p>
         </header>
 
         <textarea
@@ -49,10 +51,10 @@
           rows="1"
           spellcheck="false"
           aria-label="Payload"
-          placeholder="Hex or base64/base64url (auto-decodes on paste), e.g. 0C000FA4C0E40000 or DAAPpMDkAAA="
+          placeholder="Hex or base64/base64url (auto-decodes on paste), e.g. 0C000FA4C0E40000 or 7FABAwN4AQECAwQFBgcIZVPxAAAACAwAD6TA5AAAOgNPS3O01l5bSvZQ"
           aria-describedby="payload-help"></textarea>
         <p id="payload-help" class="field-help">
-          Auto-decodes as you type. UET must be exactly 8 bytes (16 hex chars).
+          Auto-decodes as you type. Supports UET and Envelope payloads.
         </p>
 
         <p id="decode-feedback" class="feedback" aria-live="polite"></p>
@@ -108,16 +110,188 @@
             </table>
           </div>
         </section>
+
+        <section id="decode-envelope-panel" class="envelope-panel" hidden>
+          <div class="status-row">
+            <span id="envelope-badge" class="badge badge-success">Valid Envelope</span>
+            <span id="envelope-hmac-badge" class="badge badge-danger">HMAC not verified</span>
+          </div>
+
+          <div class="raw-inline" aria-label="Envelope raw values">
+            <div class="raw-inline-item">
+              <span class="raw-inline-label">Hex</span>
+              <code id="envelope-hex"></code>
+              <button id="copy-envelope-hex-button" type="button" class="btn-inline-copy" aria-label="Copy envelope hex" disabled>Copy</button>
+            </div>
+            <div class="raw-inline-item">
+              <span class="raw-inline-label">Base64</span>
+              <code id="envelope-base64"></code>
+              <button id="copy-envelope-base64-button" type="button" class="btn-inline-copy" aria-label="Copy envelope base64" disabled>Copy</button>
+            </div>
+          </div>
+
+          <div class="raw-panels">
+            <article>
+              <h3>Envelope hex map</h3>
+              <div id="envelope-hex-map" class="hex-map"></div>
+            </article>
+          </div>
+
+          <div class="table-wrap">
+            <table class="decoded-table">
+              <thead>
+                <tr>
+                  <th scope="col">Field</th>
+                  <th scope="col">Offset</th>
+                  <th scope="col">Raw value</th>
+                  <th scope="col">Decoded</th>
+                </tr>
+              </thead>
+              <tbody id="envelope-fields-body"></tbody>
+            </table>
+          </div>
+
+          <section class="nested-card">
+            <h3>Nested payload</h3>
+            <p id="envelope-payload-summary" class="field-help"></p>
+            <div id="envelope-nested-uet-wrap" hidden>
+              <div class="table-wrap">
+                <table class="decoded-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Field</th>
+                      <th scope="col">Raw value</th>
+                      <th scope="col">Decoded</th>
+                    </tr>
+                  </thead>
+                  <tbody id="envelope-nested-fields-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="nested-card">
+            <h3>HMAC verification (Web Crypto API)</h3>
+            <div class="envelope-hmac-controls">
+              <input id="envelope-hmac-key-input" type="text" spellcheck="false" placeholder="HMAC key hex (e.g. 0011223344556677...)" aria-label="HMAC key hex">
+              <button id="envelope-hmac-verify-button" type="button" class="btn-secondary">Verify HMAC</button>
+            </div>
+            <p id="envelope-hmac-feedback" class="feedback" aria-live="polite"></p>
+          </section>
+        </section>
+
+        <div class="inline-actions">
+          <button id="decode-debug-button" type="button" class="btn-secondary">Copy debug bundle</button>
+        </div>
       </article>
     </section>
 
     <section id="tab-build" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-build">
-      <article class="card placeholder-card">
-        <div class="placeholder-body">
-          <p class="placeholder-icon" aria-hidden="true">🛠️</p>
-          <h2>Build</h2>
-          <p>Scenario Builder - build custom ECP messages interactively.</p>
-          <p>Coming in Phase B.</p>
+      <article class="card build-card" aria-labelledby="build-title">
+        <header class="card-header">
+          <h2 id="build-title">Scenario Builder</h2>
+          <p>Build deterministic UET payloads interactively and compare size impact instantly.</p>
+        </header>
+
+        <div class="build-layout">
+          <section class="build-controls" aria-label="Builder controls">
+            <label for="build-preset">Preset</label>
+            <select id="build-preset">
+              <option value="fire">Emergency: Fire</option>
+              <option value="earthquake">Emergency: Earthquake</option>
+              <option value="medical">Emergency: Medical</option>
+              <option value="lockdown">Emergency: Lockdown</option>
+              <option value="iot-sensor">IoT: Sensor Alert</option>
+              <option value="fleet-beacon">Fleet: Vehicle Beacon</option>
+              <option value="satellite-uplink">Satellite: Uplink</option>
+              <option value="industrial-alarm">Industrial: Alarm</option>
+              <option value="evacuation">Emergency: Evacuation</option>
+              <option value="custom">Custom</option>
+            </select>
+
+            <label for="build-emergency-type">EmergencyType</label>
+            <select id="build-emergency-type"></select>
+
+            <label for="build-priority">Priority</label>
+            <select id="build-priority">
+              <option value="0">Low</option>
+              <option value="1">Medium</option>
+              <option value="2">High</option>
+              <option value="3">Critical</option>
+            </select>
+
+            <fieldset class="build-flags">
+              <legend>ActionFlags</legend>
+              <label><input type="checkbox" class="build-flag-checkbox" value="1"> SoundAlarm</label>
+              <label><input type="checkbox" class="build-flag-checkbox" value="2"> FlashLights</label>
+              <label><input type="checkbox" class="build-flag-checkbox" value="4"> Vibrate</label>
+              <label><input type="checkbox" class="build-flag-checkbox" value="8"> PlayVoice</label>
+              <label><input type="checkbox" class="build-flag-checkbox" value="16"> ShowMessage</label>
+              <label><input type="checkbox" class="build-flag-checkbox" value="32"> LockDoors</label>
+              <label><input type="checkbox" class="build-flag-checkbox" value="64"> UnlockDoors</label>
+              <label><input type="checkbox" class="build-flag-checkbox" value="128"> NotifyExternal</label>
+            </fieldset>
+
+            <label for="build-zone-input">ZoneHash</label>
+            <div class="range-pair">
+              <input id="build-zone-range" type="range" min="0" max="65535" step="1" value="1001">
+              <input id="build-zone-input" type="number" min="0" max="65535" step="1" value="1001">
+            </div>
+
+            <label for="build-timestamp-input">TimestampMinutes</label>
+            <input id="build-timestamp-input" type="number" min="0" max="65535" step="1" value="12345">
+
+            <label for="build-confirm-input">ConfirmHash</label>
+            <input id="build-confirm-input" type="number" min="0" max="262143" step="1" value="0">
+          </section>
+
+          <section class="build-output" aria-label="Builder output">
+            <p id="build-feedback" class="feedback" aria-live="polite"></p>
+
+            <div class="raw-inline" aria-label="Builder output values">
+              <div class="raw-inline-item">
+                <span class="raw-inline-label">Hex</span>
+                <code id="build-output-hex"></code>
+                <button id="build-copy-hex-button" type="button" class="btn-inline-copy" aria-label="Copy build hex" disabled>Copy</button>
+              </div>
+              <div class="raw-inline-item">
+                <span class="raw-inline-label">Base64</span>
+                <code id="build-output-base64"></code>
+                <button id="build-copy-base64-button" type="button" class="btn-inline-copy" aria-label="Copy build base64" disabled>Copy</button>
+              </div>
+            </div>
+
+            <section class="size-compare" aria-label="Size comparison">
+              <h3>Size comparison for this scenario</h3>
+              <div class="size-row">
+                <div class="size-row-head">
+                  <span>CAP XML</span>
+                  <span id="size-value-cap">0 B</span>
+                </div>
+                <div class="size-track"><span id="size-bar-cap" class="size-fill size-fill-cap"></span></div>
+              </div>
+              <div class="size-row">
+                <div class="size-row-head">
+                  <span>JSON</span>
+                  <span id="size-value-json">0 B</span>
+                </div>
+                <div class="size-track"><span id="size-bar-json" class="size-fill size-fill-json"></span></div>
+              </div>
+              <div class="size-row">
+                <div class="size-row-head">
+                  <span>ECP</span>
+                  <span id="size-value-ecp">0 B</span>
+                </div>
+                <div class="size-track"><span id="size-bar-ecp" class="size-fill size-fill-ecp"></span></div>
+              </div>
+              <p id="size-savings" class="field-help"></p>
+            </section>
+
+            <div class="inline-actions">
+              <button id="build-get-code-button" type="button" class="btn-primary">Get Code &rarr;</button>
+              <button id="build-debug-button" type="button" class="btn-secondary">Copy debug bundle</button>
+            </div>
+          </section>
         </div>
       </article>
     </section>
@@ -134,24 +308,41 @@
     </section>
 
     <section id="tab-generate" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-generate">
-      <article class="card placeholder-card">
-        <div class="placeholder-body">
-          <p class="placeholder-icon" aria-hidden="true">⚙️</p>
-          <h2>Generate</h2>
-          <p>Code Generator - get production-ready C# code for your configuration.</p>
-          <p>Coming in Phase B.</p>
+      <article class="card generate-card" aria-labelledby="generate-title">
+        <header class="card-header">
+          <h2 id="generate-title">Code Generator</h2>
+          <p>Production-ready C# snippets generated from the current Build scenario.</p>
+        </header>
+
+        <p id="generate-scenario-label" class="generate-scenario-label"></p>
+
+        <nav id="code-tab-bar" class="code-tab-bar" role="tablist" aria-label="Generated code tabs">
+          <button class="code-tab-button" role="tab" data-code-tab="one-liner" aria-selected="true">One-liner</button>
+          <button class="code-tab-button" role="tab" data-code-tab="token" aria-selected="false">Token</button>
+          <button class="code-tab-button" role="tab" data-code-tab="envelope" aria-selected="false">Envelope</button>
+          <button class="code-tab-button" role="tab" data-code-tab="decoder" aria-selected="false">Decoder</button>
+          <button class="code-tab-button" role="tab" data-code-tab="di-setup" aria-selected="false">DI Setup</button>
+          <button class="code-tab-button" role="tab" data-code-tab="test" aria-selected="false">Test</button>
+        </nav>
+
+        <div class="inline-actions">
+          <button id="generate-copy-tab-button" type="button" class="btn-inline-copy">Copy tab</button>
+          <button id="generate-copy-all-button" type="button" class="btn-inline-copy">Copy all</button>
         </div>
+
+        <pre class="generated-pre"><code id="generated-code-block" class="language-csharp"></code></pre>
+        <p id="generate-feedback" class="feedback" aria-live="polite"></p>
       </article>
     </section>
 
     <section id="tab-verify" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-verify">
       <article class="card verify-card" aria-labelledby="verify-title">
         <header class="card-header">
-          <h2 id="verify-title">Verify decoder (core suite)</h2>
-          <p>Runs 8 deterministic vectors with decode + roundtrip checks directly in your browser.</p>
+          <h2 id="verify-title">Verify decoder (full suite)</h2>
+          <p>Runs 34 deterministic vectors (8 UET + 9 Envelope + 7 HMAC + 10 Negative) directly in your browser.</p>
         </header>
         <p class="verify-engine-note">Tests the decoder engine itself, not your input.</p>
-        <button id="verify-button" type="button" class="btn-primary">Verify core suite (8 vectors)</button>
+        <button id="verify-button" type="button" class="btn-primary">Verify full suite (34 vectors)</button>
         <div id="verify-results-wrap" class="verify-results-wrap" hidden>
           <div class="verify-results-header">
             <p id="verify-summary" class="verify-summary" aria-live="polite"></p>
@@ -162,6 +353,13 @@
       </article>
     </section>
   </main>
+
+  <section id="star-cta" class="star-cta" hidden>
+    <div class="star-cta-inner">
+      <p>Getting value from ECP Studio?</p>
+      <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">Star on GitHub &rarr;</a>
+    </div>
+  </section>
 
   <footer class="studio-footer">
     <div class="footer-inner">
@@ -181,10 +379,13 @@
       <p>NuGet: <code>dotnet add package ECP.Core</code></p>
       <p>GitHub: <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">github.com/Egonex-Code/ecp-protocol</a></p>
       <p>License: Apache 2.0</p>
-      <p>Built by <a href="https://www.egonex-group.com" target="_blank" rel="noopener noreferrer">Egonex S.R.L.</a> — Enterprise emergency communication</p>
+      <p>Built by <a href="https://www.egonex-group.com" target="_blank" rel="noopener noreferrer">Egonex S.R.L.</a> - Enterprise emergency communication</p>
     </div>
   </footer>
 
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-csharp.min.js"></script>
   <script type="module" src="./studio.js"></script>
 </body>
 </html>

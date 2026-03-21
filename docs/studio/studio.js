@@ -1,15 +1,26 @@
 import {
+  ACTION_FLAG_DEFINITIONS,
+  CORE_TEST_VECTORS,
+  EMERGENCY_TYPE_ENUM_NAMES,
+  EMERGENCY_TYPE_LABELS,
+  PRIORITY_ENUM_NAMES,
+  PRIORITY_LABELS,
   encodeUet,
   formatVectorStatusLine,
   pickComparableFields,
-  tryDecodeUet,
-  verifyCoreVectors
+  tryDecodeMessage,
+  tryEncodeUet,
+  verifyEnvelopeHmacHex,
+  verifyFullVectors
 } from "./decoder.js";
 
 const TRACKING_KEYS = Object.freeze({
   open: "studio-open",
   decode: "studio-decode",
-  verify: "studio-verify"
+  verify: "studio-verify",
+  encode: "studio-encode",
+  codeCopy: "studio-codecopy",
+  debugCopy: "studio-debug-copy"
 });
 
 const TAB_NAMES = Object.freeze([
@@ -20,7 +31,16 @@ const TAB_NAMES = Object.freeze([
   "verify"
 ]);
 
-const DEFAULT_SAMPLE_UET_HEX = "0C000FA4C0E40000";
+const CODE_TAB_NAMES = Object.freeze([
+  "one-liner",
+  "token",
+  "envelope",
+  "decoder",
+  "di-setup",
+  "test"
+]);
+
+const DEFAULT_SAMPLE_UET_HEX = CORE_TEST_VECTORS[0]?.expectedHex ?? "0C000FA4C0E40000";
 
 const FIELD_SPECS = Object.freeze([
   Object.freeze({
@@ -97,12 +117,130 @@ const FIELD_SPECS = Object.freeze([
   })
 ]);
 
+const BUILD_PRESETS = Object.freeze([
+  Object.freeze({
+    id: "fire",
+    label: "Emergency: Fire",
+    fields: Object.freeze({
+      emergencyType: 0,
+      priority: 3,
+      actionFlags: 1 | 2 | 16,
+      zoneHash: 1001,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "earthquake",
+    label: "Emergency: Earthquake",
+    fields: Object.freeze({
+      emergencyType: 2,
+      priority: 3,
+      actionFlags: 1 | 4 | 16,
+      zoneHash: 2500,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "medical",
+    label: "Emergency: Medical",
+    fields: Object.freeze({
+      emergencyType: 4,
+      priority: 2,
+      actionFlags: 16 | 128,
+      zoneHash: 500,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "lockdown",
+    label: "Emergency: Lockdown",
+    fields: Object.freeze({
+      emergencyType: 7,
+      priority: 3,
+      actionFlags: 1 | 16 | 32,
+      zoneHash: 1001,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "iot-sensor",
+    label: "IoT: Sensor Alert",
+    fields: Object.freeze({
+      emergencyType: 10,
+      priority: 1,
+      actionFlags: 128,
+      zoneHash: 100,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "fleet-beacon",
+    label: "Fleet: Vehicle Beacon",
+    fields: Object.freeze({
+      emergencyType: 11,
+      priority: 0,
+      actionFlags: 0,
+      zoneHash: 30000,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "satellite-uplink",
+    label: "Satellite: Uplink",
+    fields: Object.freeze({
+      emergencyType: 12,
+      priority: 2,
+      actionFlags: 128,
+      zoneHash: 50000,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "industrial-alarm",
+    label: "Industrial: Alarm",
+    fields: Object.freeze({
+      emergencyType: 13,
+      priority: 3,
+      actionFlags: 1 | 2 | 32,
+      zoneHash: 8000,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  }),
+  Object.freeze({
+    id: "evacuation",
+    label: "Emergency: Evacuation",
+    fields: Object.freeze({
+      emergencyType: 1,
+      priority: 3,
+      actionFlags: 1 | 16,
+      zoneHash: 1500,
+      timestampMinutes: 12345,
+      confirmHash: 0
+    })
+  })
+]);
+
 const state = {
   decodeDebounceTimer: null,
   lastDecoded: null,
   lastTrackedDecodedHex: "",
   activeTooltipTrigger: null,
-  activeTab: ""
+  activeTab: "",
+  buildFields: null,
+  buildEncoded: null,
+  lastTrackedBuildHex: "",
+  activeCodeTab: "one-liner",
+  generatedCodeByTab: Object.create(null),
+  lastVerifyReport: null,
+  starCtaShown: false
 };
 
 const refs = {};
@@ -112,6 +250,8 @@ function init() {
   setupTracking();
   setupTabs();
   setupDecode();
+  setupBuild();
+  setupGenerate();
   setupVerify();
   setupTooltipOverlay();
   decodeInitialSample();
@@ -144,12 +284,62 @@ function bindRefs() {
   refs.decodedBitMap = mustGet("decoded-bit-map");
   refs.decodedHexMap = mustGet("decoded-hex-map");
   refs.decodedFieldsBody = mustGet("decoded-fields-body");
+  refs.decodeDebugButton = mustGet("decode-debug-button");
+
+  refs.decodeEnvelopePanel = mustGet("decode-envelope-panel");
+  refs.envelopeBadge = mustGet("envelope-badge");
+  refs.envelopeHmacBadge = mustGet("envelope-hmac-badge");
+  refs.envelopeHex = mustGet("envelope-hex");
+  refs.envelopeBase64 = mustGet("envelope-base64");
+  refs.copyEnvelopeHexButton = mustGet("copy-envelope-hex-button");
+  refs.copyEnvelopeBase64Button = mustGet("copy-envelope-base64-button");
+  refs.envelopeHexMap = mustGet("envelope-hex-map");
+  refs.envelopeFieldsBody = mustGet("envelope-fields-body");
+  refs.envelopePayloadSummary = mustGet("envelope-payload-summary");
+  refs.envelopeNestedWrap = mustGet("envelope-nested-uet-wrap");
+  refs.envelopeNestedFieldsBody = mustGet("envelope-nested-fields-body");
+  refs.envelopeHmacKeyInput = mustGet("envelope-hmac-key-input");
+  refs.envelopeHmacVerifyButton = mustGet("envelope-hmac-verify-button");
+  refs.envelopeHmacFeedback = mustGet("envelope-hmac-feedback");
+
+  refs.buildPreset = mustGet("build-preset");
+  refs.buildEmergencyType = mustGet("build-emergency-type");
+  refs.buildPriority = mustGet("build-priority");
+  refs.buildFlagCheckboxes = Array.from(document.querySelectorAll(".build-flag-checkbox"));
+  refs.buildZoneRange = mustGet("build-zone-range");
+  refs.buildZoneInput = mustGet("build-zone-input");
+  refs.buildTimestampInput = mustGet("build-timestamp-input");
+  refs.buildConfirmInput = mustGet("build-confirm-input");
+  refs.buildFeedback = mustGet("build-feedback");
+  refs.buildOutputHex = mustGet("build-output-hex");
+  refs.buildOutputBase64 = mustGet("build-output-base64");
+  refs.buildCopyHexButton = mustGet("build-copy-hex-button");
+  refs.buildCopyBase64Button = mustGet("build-copy-base64-button");
+  refs.buildGetCodeButton = mustGet("build-get-code-button");
+  refs.buildDebugButton = mustGet("build-debug-button");
+  refs.sizeValueCap = mustGet("size-value-cap");
+  refs.sizeValueJson = mustGet("size-value-json");
+  refs.sizeValueEcp = mustGet("size-value-ecp");
+  refs.sizeBarCap = mustGet("size-bar-cap");
+  refs.sizeBarJson = mustGet("size-bar-json");
+  refs.sizeBarEcp = mustGet("size-bar-ecp");
+  refs.sizeSavings = mustGet("size-savings");
+
+  refs.codeTabBar = mustGet("code-tab-bar");
+  refs.codeTabButtons = Array.from(document.querySelectorAll(".code-tab-button[data-code-tab]"));
+  refs.generateScenarioLabel = mustGet("generate-scenario-label");
+  refs.generateCodeBlock = mustGet("generated-code-block");
+  refs.generateFeedback = mustGet("generate-feedback");
+  refs.generateCopyTabButton = mustGet("generate-copy-tab-button");
+  refs.generateCopyAllButton = mustGet("generate-copy-all-button");
 
   refs.verifyButton = mustGet("verify-button");
   refs.verifyResultsWrap = mustGet("verify-results-wrap");
   refs.verifySummary = mustGet("verify-summary");
   refs.verifyResults = mustGet("verify-results");
   refs.verifyToggle = mustGet("verify-toggle");
+
+  refs.starCta = mustGet("star-cta");
 }
 
 function setupTracking() {
@@ -174,6 +364,7 @@ function setupTabs() {
     if (!tabName) {
       return;
     }
+
     const nextHash = `#${tabName}`;
     if (window.location.hash !== nextHash) {
       window.location.hash = nextHash;
@@ -191,6 +382,220 @@ function setupTabs() {
   }
 
   applyHashTab(true);
+}
+
+function setupDecode() {
+  refs.payloadInput.addEventListener("input", () => {
+    if (state.decodeDebounceTimer !== null) {
+      window.clearTimeout(state.decodeDebounceTimer);
+    }
+    state.decodeDebounceTimer = window.setTimeout(() => {
+      decodeCurrentInput({ trackDecode: true, revealCta: true });
+    }, 180);
+  });
+
+  refs.copyHexButton.addEventListener("click", async () => {
+    if (!state.lastDecoded || state.lastDecoded.kind !== "uet") {
+      return;
+    }
+    const copied = await copyTextBestEffort(state.lastDecoded.value.valueHex);
+    refs.decodeFeedback.textContent = copied
+      ? "Hex copied to clipboard."
+      : "Clipboard denied. Select the hex value and copy manually.";
+  });
+
+  refs.copyBase64Button.addEventListener("click", async () => {
+    if (!state.lastDecoded || state.lastDecoded.kind !== "uet") {
+      return;
+    }
+    const copied = await copyTextBestEffort(state.lastDecoded.value.valueBase64);
+    refs.decodeFeedback.textContent = copied
+      ? "Base64 copied to clipboard."
+      : "Clipboard denied. Select the base64 value and copy manually.";
+  });
+
+  refs.copyEnvelopeHexButton.addEventListener("click", async () => {
+    if (!state.lastDecoded || state.lastDecoded.kind !== "envelope") {
+      return;
+    }
+    const copied = await copyTextBestEffort(state.lastDecoded.value.valueHex);
+    refs.decodeFeedback.textContent = copied
+      ? "Envelope hex copied to clipboard."
+      : "Clipboard denied. Select the envelope hex value and copy manually.";
+  });
+
+  refs.copyEnvelopeBase64Button.addEventListener("click", async () => {
+    if (!state.lastDecoded || state.lastDecoded.kind !== "envelope") {
+      return;
+    }
+    const copied = await copyTextBestEffort(state.lastDecoded.value.valueBase64);
+    refs.decodeFeedback.textContent = copied
+      ? "Envelope base64 copied to clipboard."
+      : "Clipboard denied. Select the envelope base64 value and copy manually.";
+  });
+
+  refs.envelopeHmacVerifyButton.addEventListener("click", async () => {
+    await verifyCurrentEnvelopeHmac();
+  });
+
+  refs.decodeDebugButton.addEventListener("click", async () => {
+    await copyDebugBundle("Paste & Decode");
+  });
+}
+
+function setupBuild() {
+  populateEmergencyTypeOptions();
+
+  refs.buildPreset.addEventListener("change", () => {
+    applyPreset(refs.buildPreset.value, true);
+  });
+
+  refs.buildEmergencyType.addEventListener("change", () => {
+    syncBuildFromControls(true, true);
+  });
+  refs.buildPriority.addEventListener("change", () => {
+    syncBuildFromControls(true, true);
+  });
+
+  refs.buildFlagCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      syncBuildFromControls(true, true);
+    });
+  });
+
+  refs.buildZoneRange.addEventListener("input", () => {
+    refs.buildZoneInput.value = refs.buildZoneRange.value;
+    syncBuildFromControls(true, true);
+  });
+
+  refs.buildZoneInput.addEventListener("input", () => {
+    const clamped = clampNumber(refs.buildZoneInput.value, 0, 65535, Number(refs.buildZoneRange.value));
+    refs.buildZoneInput.value = String(clamped);
+    refs.buildZoneRange.value = String(clamped);
+    syncBuildFromControls(true, true);
+  });
+
+  refs.buildTimestampInput.addEventListener("input", () => {
+    syncBuildFromControls(true, true);
+  });
+
+  refs.buildConfirmInput.addEventListener("input", () => {
+    syncBuildFromControls(true, true);
+  });
+
+  refs.buildCopyHexButton.addEventListener("click", async () => {
+    if (!state.buildEncoded) {
+      return;
+    }
+    const copied = await copyTextBestEffort(state.buildEncoded.hex);
+    refs.buildFeedback.textContent = copied
+      ? "Builder hex copied to clipboard."
+      : "Clipboard denied. Select the hex value and copy manually.";
+  });
+
+  refs.buildCopyBase64Button.addEventListener("click", async () => {
+    if (!state.buildEncoded) {
+      return;
+    }
+    const copied = await copyTextBestEffort(state.buildEncoded.base64);
+    refs.buildFeedback.textContent = copied
+      ? "Builder base64 copied to clipboard."
+      : "Clipboard denied. Select the base64 value and copy manually.";
+  });
+
+  refs.buildGetCodeButton.addEventListener("click", () => {
+    window.location.hash = "#generate";
+  });
+
+  refs.buildDebugButton.addEventListener("click", async () => {
+    await copyDebugBundle("Scenario Builder");
+  });
+
+  applyPreset("fire", false);
+}
+
+function setupGenerate() {
+  refs.codeTabBar.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const button = target.closest("button[data-code-tab]");
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    const tabName = normalizeCodeTabName(button.dataset.codeTab);
+    if (!tabName) {
+      return;
+    }
+    state.activeCodeTab = tabName;
+    renderActiveCodeTab();
+  });
+
+  refs.generateCopyTabButton.addEventListener("click", async () => {
+    const code = state.generatedCodeByTab[state.activeCodeTab];
+    if (!code) {
+      return;
+    }
+    trackEvent(TRACKING_KEYS.codeCopy);
+    const copied = await copyTextBestEffort(code);
+    refs.generateFeedback.textContent = copied
+      ? "Code copied."
+      : "Clipboard denied. Select the code and copy manually.";
+    if (copied) {
+      revealStarCta();
+    }
+  });
+
+  refs.generateCopyAllButton.addEventListener("click", async () => {
+    const bundle = buildCombinedCodeBundle(state.generatedCodeByTab);
+    if (!bundle) {
+      return;
+    }
+    trackEvent(TRACKING_KEYS.codeCopy);
+    const copied = await copyTextBestEffort(bundle);
+    refs.generateFeedback.textContent = copied
+      ? "Complete code bundle copied."
+      : "Clipboard denied. Select the code and copy manually.";
+    if (copied) {
+      revealStarCta();
+    }
+  });
+}
+
+function setupVerify() {
+  refs.verifyToggle.addEventListener("click", () => {
+    const willHide = !refs.verifyResults.hidden;
+    refs.verifyResults.hidden = willHide;
+    refs.verifyToggle.textContent = willHide ? "Show details" : "Hide details";
+    refs.verifyToggle.setAttribute("aria-expanded", willHide ? "false" : "true");
+  });
+
+  refs.verifyButton.addEventListener("click", async () => {
+    trackEvent(TRACKING_KEYS.verify);
+    refs.verifyButton.disabled = true;
+    const originalText = refs.verifyButton.textContent;
+    refs.verifyButton.textContent = "Running 34 vectors...";
+    refs.verifySummary.className = "verify-summary";
+    refs.verifySummary.textContent = "Running full suite...";
+    refs.verifyResultsWrap.hidden = false;
+
+    const report = await verifyFullVectors();
+    state.lastVerifyReport = report;
+    renderVerifyReport(report);
+
+    refs.verifyButton.disabled = false;
+    refs.verifyButton.textContent = originalText ?? "Verify full suite (34 vectors)";
+  });
+}
+
+function setupTooltipOverlay() {
+  refs.decodeResultPanel.addEventListener("mouseover", handleTooltipMouseOver);
+  refs.decodeResultPanel.addEventListener("mouseout", handleTooltipMouseOut);
+  refs.decodeResultPanel.addEventListener("focusin", handleTooltipFocusIn);
+  refs.decodeResultPanel.addEventListener("focusout", handleTooltipFocusOut);
+  window.addEventListener("resize", refreshActiveTooltipPosition);
+  window.addEventListener("scroll", refreshActiveTooltipPosition, true);
 }
 
 function applyHashTab(trackChange) {
@@ -213,6 +618,11 @@ function getTabFromHash() {
 function normalizeTabName(value) {
   const normalized = String(value || "").trim().toLowerCase();
   return TAB_NAMES.includes(normalized) ? normalized : "";
+}
+
+function normalizeCodeTabName(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return CODE_TAB_NAMES.includes(normalized) ? normalized : "";
 }
 
 function activateTab(tabName, trackChange) {
@@ -238,73 +648,819 @@ function activateTab(tabName, trackChange) {
 
   state.activeTab = normalizedTab;
   hideActiveTooltip();
+  if (normalizedTab === "generate") {
+    renderActiveCodeTab();
+  }
 
   if (trackChange) {
     trackEvent(`studio-tab-${normalizedTab}`);
   }
 }
 
-function setupDecode() {
-  refs.payloadInput.addEventListener("input", () => {
-    if (state.decodeDebounceTimer !== null) {
-      window.clearTimeout(state.decodeDebounceTimer);
-    }
-    state.decodeDebounceTimer = window.setTimeout(() => {
-      decodeCurrentInput();
-    }, 180);
-  });
+function decodeInitialSample() {
+  refs.payloadInput.value = DEFAULT_SAMPLE_UET_HEX;
+  decodeCurrentInput({ trackDecode: false, revealCta: false });
+}
 
-  refs.copyHexButton.addEventListener("click", async () => {
-    if (!state.lastDecoded) {
-      return;
-    }
-    const copied = await copyTextBestEffort(state.lastDecoded.valueHex);
-    refs.decodeFeedback.textContent = copied
-      ? "Hex copied to clipboard."
-      : "Clipboard denied. Select the hex value and copy manually.";
-  });
+function decodeCurrentInput(options = {}) {
+  const trackDecode = options.trackDecode !== false;
+  const revealCta = options.revealCta !== false;
+  const raw = refs.payloadInput.value.trim();
+  if (!raw) {
+    hideActiveTooltip();
+    refs.decodeFeedback.textContent = "";
+    refs.decodeErrorPanel.hidden = true;
+    refs.decodeResultPanel.hidden = true;
+    refs.decodeEnvelopePanel.hidden = true;
+    state.lastDecoded = null;
+    setUetCopyButtonsEnabled(false);
+    setEnvelopeCopyButtonsEnabled(false);
+    return;
+  }
 
-  refs.copyBase64Button.addEventListener("click", async () => {
-    if (!state.lastDecoded) {
-      return;
+  const response = tryDecodeMessage(raw);
+  if (!response.ok) {
+    renderDecodeError(response.error);
+    return;
+  }
+
+  refs.decodeErrorPanel.hidden = true;
+  if (response.value.kind === "uet") {
+    renderUetDecode(response.value.value);
+  } else if (response.value.kind === "envelope") {
+    renderEnvelopeDecode(response.value.value);
+  }
+
+  const valueHex = response.value.value.valueHex;
+  if (trackDecode && state.lastTrackedDecodedHex !== valueHex) {
+    trackEvent(TRACKING_KEYS.decode);
+    state.lastTrackedDecodedHex = valueHex;
+  }
+
+  if (revealCta) {
+    revealStarCta();
+  }
+}
+
+function renderUetDecode(decoded) {
+  const roundtrip = encodeUet(pickComparableFields(decoded));
+  const roundtripOk = roundtrip.hex === decoded.valueHex && roundtrip.base64 === decoded.valueBase64;
+
+  state.lastDecoded = {
+    kind: "uet",
+    value: decoded
+  };
+
+  refs.decodeResultPanel.hidden = false;
+  refs.decodeEnvelopePanel.hidden = true;
+  setUetCopyButtonsEnabled(true);
+  setEnvelopeCopyButtonsEnabled(false);
+
+  refs.validBadge.textContent = "Valid UET";
+  refs.validBadge.className = "badge badge-success";
+  refs.roundtripBadge.textContent = roundtripOk ? "Round-trip verified" : "Round-trip mismatch";
+  refs.roundtripBadge.className = roundtripOk ? "badge badge-success" : "badge badge-danger";
+  refs.decodedHex.textContent = decoded.valueHex;
+  refs.decodedBase64.textContent = decoded.valueBase64;
+  refs.decodedBitMap.innerHTML = renderBitMap(decoded.valueBinary);
+  refs.decodedHexMap.innerHTML = renderHexMap(decoded.valueHex);
+  refs.decodedFieldsBody.innerHTML = renderDecodedRows(decoded);
+  refs.decodeFeedback.textContent = "Decoded as UET (8 bytes).";
+}
+
+function renderEnvelopeDecode(decoded) {
+  state.lastDecoded = {
+    kind: "envelope",
+    value: {
+      ...decoded
     }
-    const copied = await copyTextBestEffort(state.lastDecoded.valueBase64);
-    refs.decodeFeedback.textContent = copied
-      ? "Base64 copied to clipboard."
-      : "Clipboard denied. Select the base64 value and copy manually.";
+  };
+
+  refs.decodeResultPanel.hidden = true;
+  refs.decodeEnvelopePanel.hidden = false;
+  setUetCopyButtonsEnabled(false);
+  setEnvelopeCopyButtonsEnabled(true);
+  hideActiveTooltip();
+
+  refs.envelopeHex.textContent = decoded.valueHex;
+  refs.envelopeBase64.textContent = decoded.valueBase64;
+  refs.envelopeHexMap.innerHTML = renderEnvelopeHexMap(decoded.valueHex, decoded.payloadLength, decoded.hmacLength);
+  refs.envelopeFieldsBody.innerHTML = renderEnvelopeRows(decoded);
+  refs.envelopePayloadSummary.textContent = decoded.nestedUet
+    ? `Payload type ${decoded.payloadTypeLabel} (${decoded.payloadLength} bytes). Nested UET detected.`
+    : `Payload type ${decoded.payloadTypeLabel} (${decoded.payloadLength} bytes).`;
+
+  refs.envelopeNestedWrap.hidden = !decoded.nestedUet;
+  refs.envelopeNestedFieldsBody.innerHTML = decoded.nestedUet ? renderNestedUetRows(decoded.nestedUet) : "";
+
+  refs.envelopeBadge.className = "badge badge-success";
+  refs.envelopeBadge.textContent = "Valid Envelope";
+
+  if (decoded.hmacLength === 0) {
+    refs.envelopeHmacBadge.className = "badge badge-success";
+    refs.envelopeHmacBadge.textContent = "Unsigned mode";
+  } else {
+    refs.envelopeHmacBadge.className = "badge badge-danger";
+    refs.envelopeHmacBadge.textContent = "HMAC not verified";
+  }
+
+  refs.envelopeHmacFeedback.textContent = "";
+  refs.decodeFeedback.textContent = "Decoded as Envelope.";
+}
+
+async function verifyCurrentEnvelopeHmac() {
+  if (!state.lastDecoded || state.lastDecoded.kind !== "envelope") {
+    refs.envelopeHmacFeedback.textContent = "Decode an envelope first.";
+    return;
+  }
+
+  const keyHex = refs.envelopeHmacKeyInput.value.trim();
+  if (!keyHex) {
+    refs.envelopeHmacFeedback.textContent = "Paste a valid HMAC key in hex format.";
+    return;
+  }
+
+  refs.envelopeHmacVerifyButton.disabled = true;
+  const response = await verifyEnvelopeHmacHex(
+    state.lastDecoded.value.valueHex,
+    keyHex,
+    state.lastDecoded.value.hmacLength
+  );
+  refs.envelopeHmacVerifyButton.disabled = false;
+
+  if (!response.ok) {
+    refs.envelopeHmacBadge.className = "badge badge-danger";
+    refs.envelopeHmacBadge.textContent = "HMAC verify error";
+    refs.envelopeHmacFeedback.textContent = response.error?.what ?? "HMAC verification failed.";
+    return;
+  }
+
+  if (response.isValid) {
+    refs.envelopeHmacBadge.className = "badge badge-success";
+    refs.envelopeHmacBadge.textContent = "HMAC verified";
+    refs.envelopeHmacFeedback.textContent = "Signature check passed.";
+  } else {
+    refs.envelopeHmacBadge.className = "badge badge-danger";
+    refs.envelopeHmacBadge.textContent = "HMAC invalid";
+    refs.envelopeHmacFeedback.textContent = "Signature mismatch: wrong key or tampered data.";
+  }
+}
+
+function renderDecodeError(error) {
+  hideActiveTooltip();
+  refs.decodeResultPanel.hidden = true;
+  refs.decodeEnvelopePanel.hidden = true;
+  setUetCopyButtonsEnabled(false);
+  setEnvelopeCopyButtonsEnabled(false);
+  state.lastDecoded = null;
+  refs.decodeErrorPanel.hidden = false;
+  refs.errorWhat.textContent = error?.what ?? "Unable to decode payload.";
+  refs.errorWhy.textContent = error?.why ?? "Input does not match supported ECP formats.";
+  refs.errorFix.textContent = error?.howToFix ?? "Use a valid UET/envelope in hex or base64.";
+  refs.decodeFeedback.textContent = "Decode failed. See details below.";
+}
+
+function populateEmergencyTypeOptions() {
+  refs.buildEmergencyType.innerHTML = EMERGENCY_TYPE_LABELS
+    .map((label, index) => `<option value="${index}">${escapeHtml(`${index} - ${label}`)}</option>`)
+    .join("");
+}
+
+function applyPreset(presetId, trackPreset) {
+  if (presetId === "custom") {
+    refs.buildPreset.value = "custom";
+    if (!state.buildFields) {
+      state.buildFields = {
+        emergencyType: 0,
+        priority: 3,
+        actionFlags: 0,
+        zoneHash: 1001,
+        timestampMinutes: 12345,
+        confirmHash: 0
+      };
+      writeBuildControls(state.buildFields);
+    }
+    renderBuildOutput(false);
+    return;
+  }
+
+  const preset = BUILD_PRESETS.find((entry) => entry.id === presetId) ?? BUILD_PRESETS[0];
+  state.buildFields = { ...preset.fields };
+  refs.buildPreset.value = preset.id;
+  writeBuildControls(state.buildFields);
+  renderBuildOutput(trackPreset);
+
+  if (trackPreset) {
+    trackEvent(`studio-preset-${sanitizeTrackingToken(preset.id)}`);
+  }
+}
+
+function writeBuildControls(fields) {
+  refs.buildEmergencyType.value = String(fields.emergencyType);
+  refs.buildPriority.value = String(fields.priority);
+  refs.buildZoneRange.value = String(fields.zoneHash);
+  refs.buildZoneInput.value = String(fields.zoneHash);
+  refs.buildTimestampInput.value = String(fields.timestampMinutes);
+  refs.buildConfirmInput.value = String(fields.confirmHash);
+
+  refs.buildFlagCheckboxes.forEach((checkbox) => {
+    const bitValue = Number(checkbox.value);
+    checkbox.checked = (fields.actionFlags & bitValue) !== 0;
   });
 }
 
-function setupVerify() {
-  refs.verifyToggle.addEventListener("click", () => {
-    const willHide = !refs.verifyResults.hidden;
-    refs.verifyResults.hidden = willHide;
-    refs.verifyToggle.textContent = willHide ? "Show details" : "Hide details";
-    refs.verifyToggle.setAttribute("aria-expanded", willHide ? "false" : "true");
+function syncBuildFromControls(trackEncode, forceCustomPreset) {
+  state.buildFields = readBuildFieldsFromControls();
+  if (forceCustomPreset) {
+    refs.buildPreset.value = "custom";
+  }
+  renderBuildOutput(trackEncode);
+}
+
+function readBuildFieldsFromControls() {
+  const emergencyType = clampNumber(refs.buildEmergencyType.value, 0, 15, 0);
+  const priority = clampNumber(refs.buildPriority.value, 0, 3, 3);
+  const zoneHash = clampNumber(refs.buildZoneInput.value, 0, 65535, 1001);
+  const timestampMinutes = clampNumber(refs.buildTimestampInput.value, 0, 65535, 12345);
+  const confirmHash = clampNumber(refs.buildConfirmInput.value, 0, 262143, 0);
+
+  let actionFlags = 0;
+  refs.buildFlagCheckboxes.forEach((checkbox) => {
+    if (checkbox.checked) {
+      actionFlags |= Number(checkbox.value);
+    }
   });
 
-  refs.verifyButton.addEventListener("click", () => {
-    trackEvent(TRACKING_KEYS.verify);
-    const report = verifyCoreVectors();
-    refs.verifyResultsWrap.hidden = false;
-    refs.verifySummary.textContent = `Core suite: ${report.passed}/${report.total} passed`;
-    refs.verifySummary.className = report.allPassed ? "verify-summary success" : "verify-summary failure";
-    refs.verifyResults.innerHTML = report.results
-      .map((result) => `<li>${escapeHtml(formatVectorStatusLine(result))}</li>`)
-      .join("");
-    refs.verifyResults.hidden = false;
-    refs.verifyToggle.textContent = "Hide details";
-    refs.verifyToggle.setAttribute("aria-expanded", "true");
+  return {
+    emergencyType,
+    priority,
+    actionFlags,
+    zoneHash,
+    timestampMinutes,
+    confirmHash
+  };
+}
+
+function renderBuildOutput(trackEncode) {
+  if (!state.buildFields) {
+    return;
+  }
+
+  const response = tryEncodeUet(state.buildFields);
+  if (!response.ok) {
+    refs.buildFeedback.textContent = response.error?.what ?? "Unable to encode the current scenario.";
+    refs.buildOutputHex.textContent = "";
+    refs.buildOutputBase64.textContent = "";
+    refs.buildCopyHexButton.disabled = true;
+    refs.buildCopyBase64Button.disabled = true;
+    return;
+  }
+
+  const encoded = response.value;
+  state.buildEncoded = encoded;
+
+  refs.buildOutputHex.textContent = encoded.hex;
+  refs.buildOutputBase64.textContent = encoded.base64;
+  refs.buildCopyHexButton.disabled = false;
+  refs.buildCopyBase64Button.disabled = false;
+  refs.buildFeedback.textContent = "Scenario encoded successfully (8-byte UET).";
+
+  if (trackEncode && state.lastTrackedBuildHex !== encoded.hex) {
+    trackEvent(TRACKING_KEYS.encode);
+    state.lastTrackedBuildHex = encoded.hex;
+  }
+
+  renderSizeComparison(state.buildFields, 8);
+  refreshGeneratedCode();
+}
+
+function renderSizeComparison(fields, ecpBytes) {
+  const activeFlags = countSetBits(fields.actionFlags);
+  const complexity = (fields.priority * 12) + (activeFlags * 8) + (fields.emergencyType >= 10 ? 16 : 8);
+  const jsonBytes = 210 + complexity;
+  const capBytes = 560 + (complexity * 2);
+
+  refs.sizeValueCap.textContent = `${capBytes} B`;
+  refs.sizeValueJson.textContent = `${jsonBytes} B`;
+  refs.sizeValueEcp.textContent = `${ecpBytes} B`;
+
+  const maxValue = Math.max(capBytes, jsonBytes, ecpBytes, 1);
+  refs.sizeBarCap.style.width = `${((capBytes / maxValue) * 100).toFixed(2)}%`;
+  refs.sizeBarJson.style.width = `${((jsonBytes / maxValue) * 100).toFixed(2)}%`;
+  refs.sizeBarEcp.style.width = `${((ecpBytes / maxValue) * 100).toFixed(2)}%`;
+
+  const jsonSavings = Math.max(0, Math.round(((jsonBytes - ecpBytes) / jsonBytes) * 100));
+  const capSavings = Math.max(0, Math.round(((capBytes - ecpBytes) / capBytes) * 100));
+  refs.sizeSavings.textContent = `Estimated savings: ${jsonSavings}% vs JSON, ${capSavings}% vs CAP XML.`;
+}
+
+function refreshGeneratedCode() {
+  if (!state.buildFields || !state.buildEncoded) {
+    refs.generateScenarioLabel.textContent = "No scenario encoded yet.";
+    refs.generateCodeBlock.textContent = "// Build a scenario first to generate code.";
+    return;
+  }
+
+  state.generatedCodeByTab = buildGeneratedCodeByTab(state.buildFields, state.buildEncoded);
+  refs.generateScenarioLabel.textContent = `Scenario: ${EMERGENCY_TYPE_LABELS[state.buildFields.emergencyType]} / ${PRIORITY_LABELS[state.buildFields.priority]} / Hex ${state.buildEncoded.hex}`;
+
+  if (!normalizeCodeTabName(state.activeCodeTab)) {
+    state.activeCodeTab = "one-liner";
+  }
+  renderActiveCodeTab();
+}
+
+function renderActiveCodeTab() {
+  refs.codeTabButtons.forEach((button) => {
+    const tabName = normalizeCodeTabName(button.dataset.codeTab);
+    const isActive = tabName === state.activeCodeTab;
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+
+  const code = state.generatedCodeByTab[state.activeCodeTab] ?? "// Build a scenario first to generate code.";
+  refs.generateCodeBlock.textContent = code;
+  highlightGeneratedCode();
+}
+
+function highlightGeneratedCode() {
+  const prism = window.Prism;
+  if (prism && typeof prism.highlightElement === "function") {
+    prism.highlightElement(refs.generateCodeBlock);
+  }
+}
+
+function buildGeneratedCodeByTab(fields, encoded) {
+  const emergencyEnum = EMERGENCY_TYPE_ENUM_NAMES[fields.emergencyType] ?? "Reserved";
+  const priorityEnum = PRIORITY_ENUM_NAMES[fields.priority] ?? "Critical";
+  const actionFlagsExpr = buildActionFlagsExpression(fields.actionFlags);
+  const actionFlagsNote = buildActionFlagsNote(fields.actionFlags);
+
+  const oneLiner = `using ECP.Core;
+using ECP.Core.Models;
+
+byte[] alert = Ecp.Alert(
+    EmergencyType.${emergencyEnum},
+    zoneHash: ${fields.zoneHash},
+    priority: EcpPriority.${priorityEnum},
+    actionFlags: ${actionFlagsExpr},
+    timestampMinutes: ${fields.timestampMinutes},
+    confirmHash: ${fields.confirmHash});
+
+// Result: ${encoded.hex}
+`;
+
+  const token = `using ECP.Core;
+using ECP.Core.Models;
+
+var token = Ecp.Token(
+    EmergencyType.${emergencyEnum},
+    EcpPriority.${priorityEnum},
+    ${actionFlagsExpr},
+    zoneHash: ${fields.zoneHash},
+    timestampMinutes: ${fields.timestampMinutes},
+    confirmHash: ${fields.confirmHash});
+
+byte[] encodedBytes = token.ToBytes();
+string encodedBase64 = token.ToBase64();
+// ${encoded.hex}
+`;
+
+  const envelope = `using ECP.Core;
+using ECP.Core.Models;
+using System.Security.Cryptography;
+
+var token = Ecp.Token(
+    EmergencyType.${emergencyEnum},
+    EcpPriority.${priorityEnum},
+    ${actionFlagsExpr},
+    zoneHash: ${fields.zoneHash},
+    timestampMinutes: ${fields.timestampMinutes},
+    confirmHash: ${fields.confirmHash});
+
+byte[] hmacKey = RandomNumberGenerator.GetBytes(32);
+var envelope = Ecp.Envelope()
+    .WithType(EmergencyType.${emergencyEnum})
+    .WithFlags(EcpFlags.NeedsConfirmation | EcpFlags.Broadcast)
+    .WithPriority(EcpPriority.${priorityEnum})
+    .WithTtl(120)
+    .WithKeyVersion(1)
+    .WithPayload(token.ToBytes())
+    .WithHmacLength(12)
+    .WithHmacKey(hmacKey)
+    .Build();
+
+byte[] envelopeBytes = envelope.ToBytes();
+`;
+
+  const decoder = `using ECP.Core;
+
+byte[] payload = Convert.FromHexString("${encoded.hex}");
+if (Ecp.TryDecodeToken(payload, out var decoded))
+{
+    Console.WriteLine(decoded.EmergencyType);
+    Console.WriteLine(decoded.Priority);
+    Console.WriteLine(decoded.ActionFlags);
+    Console.WriteLine(decoded.ZoneHash);
+    Console.WriteLine(decoded.TimestampMinutes);
+    Console.WriteLine(decoded.ConfirmHash);
+}
+`;
+
+  const diSetup = `using ECP.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+
+services.AddEcpCore(options =>
+{
+    options.HmacLength = 12;
+    options.KeyVersion = 1;
+});
+
+// Optional: services.AddEcpStandard();
+`;
+
+  const test = `using ECP.Core;
+using ECP.Core.Models;
+using Xunit;
+
+public class StudioGeneratedTests
+{
+    [Fact]
+    public void Should_encode_${sanitizeTestName(emergencyEnum)}_${sanitizeTestName(priorityEnum)}()
+    {
+        byte[] alert = Ecp.Alert(
+            EmergencyType.${emergencyEnum},
+            zoneHash: ${fields.zoneHash},
+            priority: EcpPriority.${priorityEnum},
+            actionFlags: ${actionFlagsExpr},
+            timestampMinutes: ${fields.timestampMinutes},
+            confirmHash: ${fields.confirmHash});
+
+        Assert.Equal(8, alert.Length);
+        Assert.Equal("${encoded.hex}", Convert.ToHexString(alert));
+
+        Assert.True(Ecp.TryDecodeToken(alert, out var token));
+        Assert.Equal(EmergencyType.${emergencyEnum}, token.EmergencyType);
+        Assert.Equal(EcpPriority.${priorityEnum}, token.Priority);
+        Assert.Equal((ActionFlags)${fields.actionFlags}, token.ActionFlags);
+    }
+}
+`;
+
+  return {
+    "one-liner": oneLiner,
+    token,
+    envelope,
+    decoder,
+    "di-setup": diSetup,
+    test,
+    "__meta": {
+      actionFlagsNote
+    }
+  };
+}
+
+function buildCombinedCodeBundle(codeByTab) {
+  if (!codeByTab || typeof codeByTab !== "object") {
+    return "";
+  }
+
+  const sections = CODE_TAB_NAMES
+    .map((tabName) => {
+      const code = codeByTab[tabName];
+      if (!code) {
+        return "";
+      }
+      const title = tabName.toUpperCase();
+      return `// ---------------- ${title} ----------------\n${code.trimEnd()}`;
+    })
+    .filter(Boolean);
+
+  if (sections.length === 0) {
+    return "";
+  }
+
+  return sections.join("\n\n");
+}
+
+function renderVerifyReport(report) {
+  refs.verifyResultsWrap.hidden = false;
+  refs.verifySummary.textContent = `Full suite: ${report.passed}/${report.total} passed`;
+  refs.verifySummary.className = report.allPassed ? "verify-summary success" : "verify-summary failure";
+
+  const rows = [];
+  report.groups.forEach((group) => {
+    const icon = group.allPassed ? "✅" : "❌";
+    rows.push(`<li>${icon} ${escapeHtml(group.name)}: ${group.passed}/${group.total}</li>`);
+  });
+  report.results.forEach((result) => {
+    rows.push(`<li>${escapeHtml(formatVectorStatusLine(result))}</li>`);
+  });
+
+  refs.verifyResults.innerHTML = rows.join("");
+  refs.verifyResults.hidden = false;
+  refs.verifyToggle.textContent = "Hide details";
+  refs.verifyToggle.setAttribute("aria-expanded", "true");
+}
+
+async function copyDebugBundle(mode) {
+  trackEvent(TRACKING_KEYS.debugCopy);
+  const bundle = buildDebugBundle(mode);
+  const copied = await copyTextBestEffort(bundle);
+  if (mode === "Scenario Builder") {
+    refs.buildFeedback.textContent = copied
+      ? "Debug bundle copied."
+      : "Clipboard denied. Select the bundle manually.";
+  } else {
+    refs.decodeFeedback.textContent = copied
+      ? "Debug bundle copied."
+      : "Clipboard denied. Select the bundle manually.";
+  }
+}
+
+function buildDebugBundle(mode) {
+  const lines = [];
+  lines.push("--- ECP Studio Debug Bundle ---");
+  lines.push("Studio version: 1.1");
+  lines.push(`Timestamp: ${new Date().toISOString()}`);
+  lines.push(`Mode: ${mode}`);
+
+  if (mode === "Scenario Builder" && state.buildEncoded) {
+    lines.push(`Input: ${state.buildEncoded.hex}`);
+    lines.push(`Decoded: ${EMERGENCY_TYPE_LABELS[state.buildFields.emergencyType]} / ${PRIORITY_LABELS[state.buildFields.priority]} / Zone ${state.buildFields.zoneHash} / Timestamp ${state.buildFields.timestampMinutes} / ConfirmHash ${state.buildFields.confirmHash}`);
+    lines.push("Round-trip: PASS");
+  } else if (state.lastDecoded?.kind === "uet") {
+    const value = state.lastDecoded.value;
+    lines.push(`Input: ${refs.payloadInput.value.trim()}`);
+    lines.push(`Decoded: ${value.emergencyTypeLabel} / ${value.priorityLabel} / Zone ${value.zoneHash} / Timestamp ${value.timestampMinutes} / ConfirmHash ${value.confirmHash}`);
+    lines.push("Round-trip: PASS");
+  } else if (state.lastDecoded?.kind === "envelope") {
+    const env = state.lastDecoded.value;
+    lines.push(`Input: ${refs.payloadInput.value.trim()}`);
+    lines.push(`Decoded: Envelope v${env.version} / ${env.payloadTypeLabel} / Payload ${env.payloadLength}B / HMAC ${env.hmacLength}B`);
+    lines.push(`Round-trip: ${env.signed ? "N/A (envelope decode only)" : "PASS (unsigned)"}`);
+  } else {
+    lines.push("Input: (empty)");
+    lines.push("Decoded: (none)");
+    lines.push("Round-trip: N/A");
+  }
+
+  if (state.lastVerifyReport) {
+    lines.push(`Vectors verified: ${state.lastVerifyReport.passed}/${state.lastVerifyReport.total}`);
+  } else {
+    lines.push("Vectors verified: not-run");
+  }
+  lines.push(`Browser: ${navigator.userAgent}`);
+  lines.push("---");
+  return lines.join("\n");
+}
+
+function revealStarCta() {
+  if (state.starCtaShown) {
+    return;
+  }
+  state.starCtaShown = true;
+  refs.starCta.hidden = false;
+}
+
+function renderDecodedRows(decoded) {
+  return FIELD_SPECS.map((spec, index) => {
+    const raw = Number(decoded[spec.key]);
+    const tooltipId = `tooltip-${spec.key}-${index}`;
+    const rawHex = `0x${toPaddedHex(raw, spec.rawHexWidth)}`;
+    const decodedValue = spec.decodedValue(decoded);
+
+    return (
+      "<tr>" +
+      "<td>" +
+      `<div class="field-cell">${escapeHtml(spec.label)}` +
+      "<span class=\"tooltip-wrap\">" +
+      `<button type="button" class="tooltip-trigger" aria-describedby="${tooltipId}">?</button>` +
+      `<span class="tooltip-text" role="tooltip" id="${tooltipId}">` +
+      `<strong>What:</strong> ${escapeHtml(spec.what)}<br>` +
+      `<strong>Bits:</strong> ${escapeHtml(spec.bits)}<br>` +
+      `<strong>Formula:</strong> <code>${escapeHtml(spec.formula)}</code><br>` +
+      `<strong>Values:</strong> ${escapeHtml(spec.values)}` +
+      "</span></span></div></td>" +
+      `<td><code>${escapeHtml(spec.bits)}</code></td>` +
+      `<td>${raw} <code>(${rawHex})</code></td>` +
+      `<td>${escapeHtml(decodedValue)}</td>` +
+      "</tr>"
+    );
+  }).join("");
+}
+
+function renderEnvelopeRows(envelope) {
+  const rows = [
+    ["Magic", "0-1", `0x${envelope.magicHex}`, `0x${envelope.magicHex}`],
+    ["Version", "2", `0x${toPaddedHex(envelope.version, 2)}`, `v${envelope.version}`],
+    ["Flags", "3", `0x${toPaddedHex(envelope.flags, 2)}`, envelope.flagLabels.length > 0 ? envelope.flagLabels.join(", ") : "None"],
+    ["Priority", "4", envelope.priority, envelope.priorityLabel],
+    ["TTL", "5", envelope.ttl, `${envelope.ttl} seconds`],
+    ["KeyVersion", "6", envelope.keyVersion, `v${envelope.keyVersion}`],
+    ["MessageId", "7-14", `0x${envelope.messageIdHex}`, `0x${envelope.messageIdHex}`],
+    ["Timestamp", "15-18", envelope.timestampSeconds, envelope.timestampIso],
+    ["PayloadType", "19", envelope.payloadType, envelope.payloadTypeLabel],
+    ["PayloadLength", "20-21", envelope.payloadLength, `${envelope.payloadLength} bytes`],
+    ["HmacLength", "derived", envelope.hmacLength, envelope.hmacLength === 0 ? "Unsigned mode" : `${envelope.hmacLength} bytes`]
+  ];
+
+  return rows
+    .map((row) => `<tr><td>${escapeHtml(String(row[0]))}</td><td><code>${escapeHtml(String(row[1]))}</code></td><td>${escapeHtml(String(row[2]))}</td><td>${escapeHtml(String(row[3]))}</td></tr>`)
+    .join("");
+}
+
+function renderNestedUetRows(decoded) {
+  return [
+    ["EmergencyType", decoded.emergencyType, decoded.emergencyTypeLabel],
+    ["Priority", decoded.priority, decoded.priorityLabel],
+    ["ActionFlags", decoded.actionFlags, decoded.actionFlagLabels.length > 0 ? decoded.actionFlagLabels.join(", ") : "None"],
+    ["ZoneHash", decoded.zoneHash, `0x${toPaddedHex(decoded.zoneHash, 4)}`],
+    ["TimestampMinutes", decoded.timestampMinutes, `0x${toPaddedHex(decoded.timestampMinutes, 4)}`],
+    ["ConfirmHash", decoded.confirmHash, `0x${toPaddedHex(decoded.confirmHash, 5)}`]
+  ].map((row) => `<tr><td>${escapeHtml(String(row[0]))}</td><td>${escapeHtml(String(row[1]))}</td><td>${escapeHtml(String(row[2]))}</td></tr>`)
+    .join("");
+}
+
+function renderBitMap(binary64) {
+  const segments = [
+    { label: "ET", bits: binary64.slice(0, 4), css: "bit-map-segment segment-emergency" },
+    { label: "Pr", bits: binary64.slice(4, 6), css: "bit-map-segment segment-priority" },
+    { label: "Action", bits: binary64.slice(6, 14), css: "bit-map-segment segment-action" },
+    { label: "Zone", bits: binary64.slice(14, 30), css: "bit-map-segment segment-zone" },
+    { label: "Time", bits: binary64.slice(30, 46), css: "bit-map-segment segment-time" },
+    { label: "Confirm", bits: binary64.slice(46, 64), css: "bit-map-segment segment-confirm" }
+  ];
+
+  return segments
+    .map((segment) => `<span class="${segment.css}">${segment.label}:${segment.bits}</span>`)
+    .join("");
+}
+
+function renderHexMap(hex) {
+  const classes = [
+    "field-mixed",
+    "field-mixed",
+    "field-zone",
+    "field-mixed",
+    "field-time",
+    "field-mixed",
+    "field-confirm",
+    "field-confirm"
+  ];
+
+  return splitHexBytes(hex)
+    .map((byte, index) => `<span class="hex-byte ${classes[index] || ""}">${byte}</span>`)
+    .join("");
+}
+
+function renderEnvelopeHexMap(hex, payloadLength, hmacLength) {
+  const bytes = splitHexBytes(hex);
+  return bytes
+    .map((byte, index) => {
+      let cls = "field-header";
+      if (index >= 22 && index < 22 + payloadLength) {
+        cls = "field-payload";
+      } else if (index >= 22 + payloadLength && index < 22 + payloadLength + hmacLength) {
+        cls = "field-hmac";
+      }
+      return `<span class="hex-byte ${cls}">${byte}</span>`;
+    })
+    .join("");
+}
+
+function setUetCopyButtonsEnabled(enabled) {
+  refs.copyHexButton.disabled = !enabled;
+  refs.copyBase64Button.disabled = !enabled;
+}
+
+function setEnvelopeCopyButtonsEnabled(enabled) {
+  refs.copyEnvelopeHexButton.disabled = !enabled;
+  refs.copyEnvelopeBase64Button.disabled = !enabled;
+}
+
+function splitHexBytes(hex) {
+  const bytes = [];
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes.push(hex.slice(i, i + 2));
+  }
+  return bytes;
+}
+
+function buildActionFlagsExpression(actionFlags) {
+  if (actionFlags === 0) {
+    return "ActionFlags.None";
+  }
+
+  const parts = [];
+  ACTION_FLAG_DEFINITIONS.forEach((item) => {
+    if ((actionFlags & (1 << item.bit)) !== 0) {
+      parts.push(`ActionFlags.${item.name}`);
+    }
+  });
+
+  return parts.length > 0 ? parts.join(" | ") : "ActionFlags.None";
+}
+
+function buildActionFlagsNote(actionFlags) {
+  if (actionFlags === 0) {
+    return "None";
+  }
+  const labels = ACTION_FLAG_DEFINITIONS
+    .filter((item) => (actionFlags & (1 << item.bit)) !== 0)
+    .map((item) => item.label);
+  return labels.length > 0 ? labels.join(", ") : "None";
+}
+
+function sanitizeTestName(value) {
+  return String(value).replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").toLowerCase();
+}
+
+function countSetBits(value) {
+  let count = 0;
+  let remaining = value >>> 0;
+  while (remaining !== 0) {
+    count += remaining & 1;
+    remaining >>>= 1;
+  }
+  return count;
+}
+
+function clampNumber(rawValue, minValue, maxValue, fallback) {
+  const parsed = Number.parseInt(String(rawValue), 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return clamp(parsed, minValue, maxValue);
+}
+
+function sanitizeTrackingToken(value) {
+  return String(value).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function shouldTrack() {
+  const dnt = String(
+    navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack || ""
+  ).toLowerCase();
+  return dnt !== "1" && dnt !== "yes";
+}
+
+function trackEvent(key) {
+  if (!shouldTrack() || !key) {
+    return;
+  }
+
+  const endpoint = "https://countapi.mileshilliard.com/api/v1/hit/" + encodeURIComponent(key);
+  fetch(endpoint, {
+    method: "GET",
+    cache: "no-store",
+    mode: "no-cors",
+    keepalive: true
+  }).catch(() => {
+    // Tracking is best effort and must never block UX.
   });
 }
 
-function setupTooltipOverlay() {
-  refs.decodeResultPanel.addEventListener("mouseover", handleTooltipMouseOver);
-  refs.decodeResultPanel.addEventListener("mouseout", handleTooltipMouseOut);
-  refs.decodeResultPanel.addEventListener("focusin", handleTooltipFocusIn);
-  refs.decodeResultPanel.addEventListener("focusout", handleTooltipFocusOut);
-  window.addEventListener("resize", refreshActiveTooltipPosition);
-  window.addEventListener("scroll", refreshActiveTooltipPosition, true);
+function parseRefCode() {
+  const params = new URLSearchParams(window.location.search);
+  const rawRef = params.get("ref");
+  if (!rawRef) {
+    return "";
+  }
+  const normalized = rawRef.trim().toLowerCase();
+  return /^[a-z0-9_-]{1,32}$/.test(normalized) ? normalized : "";
+}
+
+async function copyTextBestEffort(text) {
+  if (!text) {
+    return false;
+  }
+
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) {
+    // Fallback below.
+  }
+
+  try {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    helper.style.pointerEvents = "none";
+    document.body.appendChild(helper);
+    helper.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(helper);
+    return ok;
+  } catch (_) {
+    return false;
+  }
 }
 
 function handleTooltipMouseOver(event) {
@@ -450,204 +1606,8 @@ function resetTooltipInlinePosition(tooltip) {
   tooltip.style.visibility = "";
 }
 
-function decodeInitialSample() {
-  refs.payloadInput.value = DEFAULT_SAMPLE_UET_HEX;
-  decodeCurrentInput();
-}
-
-function decodeCurrentInput() {
-  const raw = refs.payloadInput.value.trim();
-  if (!raw) {
-    hideActiveTooltip();
-    refs.decodeFeedback.textContent = "";
-    refs.decodeErrorPanel.hidden = true;
-    refs.decodeResultPanel.hidden = true;
-    state.lastDecoded = null;
-    setCopyButtonsEnabled(false);
-    return;
-  }
-
-  const result = tryDecodeUet(raw);
-  if (!result.ok) {
-    renderDecodeError(result.error);
-    return;
-  }
-
-  const decoded = result.value;
-  const roundtrip = encodeUet(pickComparableFields(decoded));
-  const roundtripOk = roundtrip.hex === decoded.valueHex && roundtrip.base64 === decoded.valueBase64;
-
-  state.lastDecoded = decoded;
-  refs.decodeErrorPanel.hidden = true;
-  refs.decodeResultPanel.hidden = false;
-  setCopyButtonsEnabled(true);
-
-  refs.validBadge.textContent = "Valid UET";
-  refs.validBadge.className = "badge badge-success";
-  refs.roundtripBadge.textContent = roundtripOk ? "Round-trip verified" : "Round-trip mismatch";
-  refs.roundtripBadge.className = roundtripOk ? "badge badge-success" : "badge badge-danger";
-  refs.decodedHex.textContent = decoded.valueHex;
-  refs.decodedBase64.textContent = decoded.valueBase64;
-  refs.decodedBitMap.innerHTML = renderBitMap(decoded.valueBinary);
-  refs.decodedHexMap.innerHTML = renderHexMap(decoded.valueHex);
-  refs.decodedFieldsBody.innerHTML = renderDecodedRows(decoded);
-  refs.decodeFeedback.textContent = "Decode completed. Fields and roundtrip status updated.";
-
-  if (state.lastTrackedDecodedHex !== decoded.valueHex) {
-    trackEvent(TRACKING_KEYS.decode);
-    state.lastTrackedDecodedHex = decoded.valueHex;
-  }
-}
-
-function renderDecodeError(error) {
-  hideActiveTooltip();
-  refs.decodeResultPanel.hidden = true;
-  setCopyButtonsEnabled(false);
-  refs.decodeErrorPanel.hidden = false;
-  refs.errorWhat.textContent = error?.what ?? "Unable to decode payload.";
-  refs.errorWhy.textContent = error?.why ?? "Input does not match supported UET formats.";
-  refs.errorFix.textContent = error?.howToFix ?? "Use a valid 8-byte UET in hex or base64.";
-  refs.decodeFeedback.textContent = "Decode failed. See details below.";
-}
-
-function renderDecodedRows(decoded) {
-  return FIELD_SPECS.map((spec, index) => {
-    const raw = Number(decoded[spec.key]);
-    const tooltipId = `tooltip-${spec.key}-${index}`;
-    const rawHex = `0x${toPaddedHex(raw, spec.rawHexWidth)}`;
-    const decodedValue = spec.decodedValue(decoded);
-
-    return (
-      "<tr>" +
-      "<td>" +
-      `<div class="field-cell">${escapeHtml(spec.label)}` +
-      "<span class=\"tooltip-wrap\">" +
-      `<button type="button" class="tooltip-trigger" aria-describedby="${tooltipId}">?</button>` +
-      `<span class="tooltip-text" role="tooltip" id="${tooltipId}">` +
-      `<strong>What:</strong> ${escapeHtml(spec.what)}<br>` +
-      `<strong>Bits:</strong> ${escapeHtml(spec.bits)}<br>` +
-      `<strong>Formula:</strong> <code>${escapeHtml(spec.formula)}</code><br>` +
-      `<strong>Values:</strong> ${escapeHtml(spec.values)}` +
-      "</span></span></div></td>" +
-      `<td><code>${escapeHtml(spec.bits)}</code></td>` +
-      `<td>${raw} <code>(${rawHex})</code></td>` +
-      `<td>${escapeHtml(decodedValue)}</td>` +
-      "</tr>"
-    );
-  }).join("");
-}
-
-function renderBitMap(binary64) {
-  const segments = [
-    { label: "ET", bits: binary64.slice(0, 4), css: "bit-map-segment segment-emergency" },
-    { label: "Pr", bits: binary64.slice(4, 6), css: "bit-map-segment segment-priority" },
-    { label: "Action", bits: binary64.slice(6, 14), css: "bit-map-segment segment-action" },
-    { label: "Zone", bits: binary64.slice(14, 30), css: "bit-map-segment segment-zone" },
-    { label: "Time", bits: binary64.slice(30, 46), css: "bit-map-segment segment-time" },
-    { label: "Confirm", bits: binary64.slice(46, 64), css: "bit-map-segment segment-confirm" }
-  ];
-
-  return segments
-    .map((segment) => `<span class="${segment.css}">${segment.label}:${segment.bits}</span>`)
-    .join("");
-}
-
-function renderHexMap(hex) {
-  const classes = [
-    "field-mixed",
-    "field-mixed",
-    "field-zone",
-    "field-mixed",
-    "field-time",
-    "field-mixed",
-    "field-confirm",
-    "field-confirm"
-  ];
-
-  return splitHexBytes(hex)
-    .map((byte, index) => `<span class="hex-byte ${classes[index] || ""}">${byte}</span>`)
-    .join("");
-}
-
-function setCopyButtonsEnabled(enabled) {
-  refs.copyHexButton.disabled = !enabled;
-  refs.copyBase64Button.disabled = !enabled;
-}
-
-function splitHexBytes(hex) {
-  const bytes = [];
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes.push(hex.slice(i, i + 2));
-  }
-  return bytes;
-}
-
-function shouldTrack() {
-  const dnt = String(
-    navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack || ""
-  ).toLowerCase();
-  return dnt !== "1" && dnt !== "yes";
-}
-
-function trackEvent(key) {
-  if (!shouldTrack() || !key) {
-    return;
-  }
-
-  const endpoint = "https://countapi.mileshilliard.com/api/v1/hit/" + encodeURIComponent(key);
-  fetch(endpoint, {
-    method: "GET",
-    cache: "no-store",
-    mode: "no-cors",
-    keepalive: true
-  }).catch(() => {
-    // Tracking is best effort and must never block UX.
-  });
-}
-
-function parseRefCode() {
-  const params = new URLSearchParams(window.location.search);
-  const rawRef = params.get("ref");
-  if (!rawRef) {
-    return "";
-  }
-  const normalized = rawRef.trim().toLowerCase();
-  return /^[a-z0-9_-]{1,32}$/.test(normalized) ? normalized : "";
-}
-
-async function copyTextBestEffort(text) {
-  if (!text) {
-    return false;
-  }
-
-  try {
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch (_) {
-    // Fallback below.
-  }
-
-  try {
-    const helper = document.createElement("textarea");
-    helper.value = text;
-    helper.setAttribute("readonly", "");
-    helper.style.position = "fixed";
-    helper.style.opacity = "0";
-    helper.style.pointerEvents = "none";
-    document.body.appendChild(helper);
-    helper.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(helper);
-    return ok;
-  } catch (_) {
-    return false;
-  }
-}
-
 function toPaddedHex(value, width) {
-  return value.toString(16).toUpperCase().padStart(width, "0");
+  return Number(value).toString(16).toUpperCase().padStart(width, "0");
 }
 
 function escapeHtml(value) {
