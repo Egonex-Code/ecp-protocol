@@ -1,5 +1,4 @@
 import {
-  decodeUet,
   encodeUet,
   formatVectorStatusLine,
   pickComparableFields,
@@ -13,70 +12,15 @@ const TRACKING_KEYS = Object.freeze({
   verify: "studio-verify"
 });
 
-const AUTOPLAY_DATA = Object.freeze({
-  scenario: "FIRE / Building A / Critical / Zone 1001",
-  uetHex: "0C000FA4C0E40000",
-  uetBase64: "DAAPpMDkAAA=",
-  envelopeHex: "EC50010303780101020304050607086553F1000000080C000FA4C0E400003A034F4B73B4D65E5B4AF650",
-  vectorId: "uet-fire-critical-001",
-  envelopeVectorId: "env-signed-uet-h12-001",
-  capBytes: 669,
-  jsonBytes: 270,
-  envelopeBytes: 42,
-  uetBytes: 8
-});
-
-const AUTOPLAY_STEPS = Object.freeze([
-  Object.freeze({
-    id: "scenario",
-    title: "1) Scenario input",
-    description: "Canonical deterministic scenario used for reproducible checks.",
-    source: "Source vector: uet-fire-critical-001",
-    durationMs: 2200
-  }),
-  Object.freeze({
-    id: "uet-encode",
-    title: "2) UET encoding",
-    description: "UET bytes are revealed progressively from the canonical vector.",
-    source: "Source vector: uet-fire-critical-001",
-    durationMs: 2400
-  }),
-  Object.freeze({
-    id: "decode-preview",
-    title: "3) Decode preview",
-    description: "Decoded fields are computed from the exact same UET bytes.",
-    source: "Source vector: uet-fire-critical-001",
-    durationMs: 2200
-  }),
-  Object.freeze({
-    id: "envelope-wrap",
-    title: "4) Envelope wrapping",
-    description: "Header + payload + HMAC are appended deterministically.",
-    source: "Source vector: env-signed-uet-h12-001",
-    durationMs: 3000
-  }),
-  Object.freeze({
-    id: "size-breakdown",
-    title: "5) Byte breakdown",
-    description: "42 bytes = header 22 + payload 8 + HMAC 12.",
-    source: "Source vector: env-signed-uet-h12-001",
-    durationMs: 2000
-  }),
-  Object.freeze({
-    id: "signature-status",
-    title: "6) Signature status",
-    description: "Phase A shows deterministic precomputed signature evidence.",
-    source: "Source vector: env-signed-uet-h12-001",
-    durationMs: 2100
-  }),
-  Object.freeze({
-    id: "comparison",
-    title: "7) CAP vs JSON vs ECP",
-    description: "Same scenario, measured and compared transparently.",
-    source: "Source: samples/ProofCard + vectors",
-    durationMs: 2500
-  })
+const TAB_NAMES = Object.freeze([
+  "decode",
+  "build",
+  "compare",
+  "generate",
+  "verify"
 ]);
+
+const DEFAULT_SAMPLE_UET_HEX = "0C000FA4C0E40000";
 
 const FIELD_SPECS = Object.freeze([
   Object.freeze({
@@ -154,15 +98,11 @@ const FIELD_SPECS = Object.freeze([
 ]);
 
 const state = {
-  autoplayIndex: 0,
-  autoplayPlaying: false,
-  autoplaySpeed: 1,
-  autoplayStepTimer: null,
-  autoplayAnimationTimer: null,
   decodeDebounceTimer: null,
   lastDecoded: null,
   lastTrackedDecodedHex: "",
-  activeTooltipTrigger: null
+  activeTooltipTrigger: null,
+  activeTab: ""
 };
 
 const refs = {};
@@ -170,23 +110,23 @@ const refs = {};
 function init() {
   bindRefs();
   setupTracking();
-  setupAutoplay();
+  setupTabs();
   setupDecode();
   setupVerify();
-  setupTooltipAutoFlip();
+  setupTooltipOverlay();
   decodeInitialSample();
 }
 
 function bindRefs() {
-  refs.autoplaySteps = mustGet("autoplay-steps");
-  refs.autoplayStepTitle = mustGet("autoplay-step-title");
-  refs.autoplayStepDescription = mustGet("autoplay-step-description");
-  refs.autoplayEvidence = mustGet("autoplay-evidence");
-  refs.autoplaySource = mustGet("autoplay-source");
-  refs.autoplayDetails = mustGet("autoplay-details");
-  refs.autoplayPlayPause = mustGet("autoplay-play-pause");
-  refs.autoplaySpeed = mustGet("autoplay-speed");
-  refs.autoplayReset = mustGet("autoplay-reset");
+  refs.tabBar = mustGet("tab-bar");
+  refs.tabButtons = Array.from(document.querySelectorAll(".tab-button[data-tab]"));
+  refs.tabPanels = Object.freeze({
+    decode: mustGet("tab-decode"),
+    build: mustGet("tab-build"),
+    compare: mustGet("tab-compare"),
+    generate: mustGet("tab-generate"),
+    verify: mustGet("tab-verify")
+  });
 
   refs.payloadInput = mustGet("payload-input");
   refs.copyHexButton = mustGet("copy-hex-button");
@@ -220,78 +160,87 @@ function setupTracking() {
   }
 }
 
-function setupAutoplay() {
-  refs.autoplaySteps.innerHTML = AUTOPLAY_STEPS.map((step, index) => (
-    `<li><button type="button" class="autoplay-step-button" data-step-index="${index}">${escapeHtml(step.title)}</button></li>`
-  )).join("");
-
-  refs.autoplaySteps.addEventListener("click", (event) => {
+function setupTabs() {
+  refs.tabBar.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
-    const button = target.closest("button[data-step-index]");
+    const button = target.closest("button[data-tab]");
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
-    const index = Number(button.getAttribute("data-step-index"));
-    if (Number.isInteger(index)) {
-      state.autoplayIndex = clamp(index, 0, AUTOPLAY_STEPS.length - 1);
-      renderAutoplayStep();
-      scheduleAutoplayStep();
-    }
-  });
-
-  refs.autoplayPlayPause.addEventListener("click", () => {
-    state.autoplayPlaying = !state.autoplayPlaying;
-    refs.autoplayPlayPause.textContent = state.autoplayPlaying ? "Pause" : "Play";
-    if (state.autoplayPlaying) {
-      scheduleAutoplayStep();
-    } else {
-      clearAutoplayTimers();
-    }
-  });
-
-  refs.autoplaySpeed.addEventListener("change", () => {
-    const speed = Number.parseFloat(refs.autoplaySpeed.value);
-    state.autoplaySpeed = Number.isFinite(speed) && speed > 0 ? speed : 1;
-    scheduleAutoplayStep();
-  });
-
-  refs.autoplayReset.addEventListener("click", () => {
-    clearAutoplayTimers();
-    state.autoplayIndex = 0;
-    state.autoplayPlaying = refs.autoplayDetails.open;
-    refs.autoplayPlayPause.textContent = state.autoplayPlaying ? "Pause" : "Play";
-    refs.autoplaySpeed.value = "1";
-    state.autoplaySpeed = 1;
-    renderAutoplayStep();
-    if (state.autoplayPlaying) {
-      scheduleAutoplayStep();
-    }
-  });
-
-  refs.autoplayDetails.addEventListener("toggle", () => {
-    if (refs.autoplayDetails.open) {
-      if (!state.autoplayPlaying) {
-        state.autoplayPlaying = true;
-        refs.autoplayPlayPause.textContent = "Pause";
-      }
-      scheduleAutoplayStep();
+    const tabName = normalizeTabName(button.dataset.tab);
+    if (!tabName) {
       return;
     }
-
-    state.autoplayPlaying = false;
-    refs.autoplayPlayPause.textContent = "Play";
-    clearAutoplayTimers();
+    const nextHash = `#${tabName}`;
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+      return;
+    }
+    activateTab(tabName, true);
   });
 
-  refs.autoplayDetails.open = false;
-  state.autoplayPlaying = refs.autoplayDetails.open;
-  refs.autoplayPlayPause.textContent = state.autoplayPlaying ? "Pause" : "Play";
-  renderAutoplayStep();
-  if (state.autoplayPlaying) {
-    scheduleAutoplayStep();
+  window.addEventListener("hashchange", () => {
+    applyHashTab(true);
+  });
+
+  if (!window.location.hash) {
+    history.replaceState(null, "", "#decode");
+  }
+
+  applyHashTab(true);
+}
+
+function applyHashTab(trackChange) {
+  const tabName = getTabFromHash();
+  const normalizedHash = `#${tabName}`;
+  if (window.location.hash !== normalizedHash) {
+    history.replaceState(null, "", normalizedHash);
+  }
+  activateTab(tabName, trackChange);
+}
+
+function getTabFromHash() {
+  const rawHash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const tabName = normalizeTabName(rawHash);
+  return tabName || "decode";
+}
+
+function normalizeTabName(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return TAB_NAMES.includes(normalized) ? normalized : "";
+}
+
+function activateTab(tabName, trackChange) {
+  const normalizedTab = normalizeTabName(tabName) || "decode";
+  if (state.activeTab === normalizedTab) {
+    return;
+  }
+
+  refs.tabButtons.forEach((button) => {
+    const buttonTab = normalizeTabName(button.dataset.tab);
+    const isActive = buttonTab === normalizedTab;
+    button.classList.toggle("tab-button-active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+    button.tabIndex = isActive ? 0 : -1;
+  });
+
+  TAB_NAMES.forEach((name) => {
+    const panel = refs.tabPanels[name];
+    const isActive = name === normalizedTab;
+    panel.classList.toggle("tab-active", isActive);
+    panel.setAttribute("aria-hidden", isActive ? "false" : "true");
+  });
+
+  state.activeTab = normalizedTab;
+  hideActiveTooltip();
+
+  if (trackChange) {
+    trackEvent(`studio-tab-${normalizedTab}`);
   }
 }
 
@@ -349,73 +298,13 @@ function setupVerify() {
   });
 }
 
-function setupTooltipAutoFlip() {
+function setupTooltipOverlay() {
   refs.decodeResultPanel.addEventListener("mouseover", handleTooltipMouseOver);
   refs.decodeResultPanel.addEventListener("mouseout", handleTooltipMouseOut);
   refs.decodeResultPanel.addEventListener("focusin", handleTooltipFocusIn);
   refs.decodeResultPanel.addEventListener("focusout", handleTooltipFocusOut);
   window.addEventListener("resize", refreshActiveTooltipPosition);
   window.addEventListener("scroll", refreshActiveTooltipPosition, true);
-}
-
-function decodeInitialSample() {
-  refs.payloadInput.value = AUTOPLAY_DATA.uetHex;
-  decodeCurrentInput();
-}
-
-function decodeCurrentInput() {
-  const raw = refs.payloadInput.value.trim();
-  if (!raw) {
-    hideActiveTooltip();
-    refs.decodeFeedback.textContent = "";
-    refs.decodeErrorPanel.hidden = true;
-    refs.decodeResultPanel.hidden = true;
-    state.lastDecoded = null;
-    setCopyButtonsEnabled(false);
-    return;
-  }
-
-  const result = tryDecodeUet(raw);
-  if (!result.ok) {
-    renderDecodeError(result.error);
-    return;
-  }
-
-  const decoded = result.value;
-  const roundtrip = encodeUet(pickComparableFields(decoded));
-  const roundtripOk = roundtrip.hex === decoded.valueHex && roundtrip.base64 === decoded.valueBase64;
-
-  state.lastDecoded = decoded;
-  refs.decodeErrorPanel.hidden = true;
-  refs.decodeResultPanel.hidden = false;
-  setCopyButtonsEnabled(true);
-
-  refs.validBadge.textContent = "Valid UET";
-  refs.validBadge.className = "badge badge-success";
-  refs.roundtripBadge.textContent = roundtripOk ? "Round-trip verified" : "Round-trip mismatch";
-  refs.roundtripBadge.className = roundtripOk ? "badge badge-success" : "badge badge-danger";
-  refs.decodedHex.textContent = decoded.valueHex;
-  refs.decodedBase64.textContent = decoded.valueBase64;
-  refs.decodedBitMap.innerHTML = renderBitMap(decoded.valueBinary);
-  refs.decodedHexMap.innerHTML = renderHexMap(decoded.valueHex);
-  refs.decodedFieldsBody.innerHTML = renderDecodedRows(decoded);
-  refs.decodeFeedback.textContent = "Decode completed. Fields and roundtrip status updated.";
-
-  if (state.lastTrackedDecodedHex !== decoded.valueHex) {
-    trackEvent(TRACKING_KEYS.decode);
-    state.lastTrackedDecodedHex = decoded.valueHex;
-  }
-}
-
-function renderDecodeError(error) {
-  hideActiveTooltip();
-  refs.decodeResultPanel.hidden = true;
-  setCopyButtonsEnabled(false);
-  refs.decodeErrorPanel.hidden = false;
-  refs.errorWhat.textContent = error?.what ?? "Unable to decode payload.";
-  refs.errorWhy.textContent = error?.why ?? "Input does not match supported UET formats.";
-  refs.errorFix.textContent = error?.howToFix ?? "Use a valid 8-byte UET in hex or base64.";
-  refs.decodeFeedback.textContent = "Decode failed. See details below.";
 }
 
 function handleTooltipMouseOver(event) {
@@ -561,136 +450,64 @@ function resetTooltipInlinePosition(tooltip) {
   tooltip.style.visibility = "";
 }
 
-function renderAutoplayStep() {
-  const step = AUTOPLAY_STEPS[state.autoplayIndex];
-  refs.autoplayStepTitle.textContent = step.title;
-  refs.autoplayStepDescription.textContent = step.description;
-  refs.autoplaySource.textContent = step.source;
-
-  Array.from(refs.autoplaySteps.querySelectorAll("button[data-step-index]")).forEach((button, index) => {
-    button.classList.toggle("active", index === state.autoplayIndex);
-  });
-
-  clearAutoplayAnimation();
-
-  switch (step.id) {
-    case "scenario":
-      refs.autoplayEvidence.innerHTML = (
-        `<p><strong>Scenario:</strong> ${escapeHtml(AUTOPLAY_DATA.scenario)}</p>` +
-        `<p><strong>Canonical UET:</strong> <code>${AUTOPLAY_DATA.uetHex}</code></p>` +
-        `<p><strong>Canonical base64:</strong> <code>${AUTOPLAY_DATA.uetBase64}</code></p>`
-      );
-      break;
-    case "uet-encode":
-      animateHexBytes(AUTOPLAY_DATA.uetHex, (index) => `hex-byte ecp byte-${index}`);
-      break;
-    case "decode-preview": {
-      const decoded = decodeUet(AUTOPLAY_DATA.uetHex);
-      refs.autoplayEvidence.innerHTML = (
-        "<div class=\"table-wrap\"><table class=\"decoded-table\"><tbody>" +
-        `<tr><td>EmergencyType</td><td>${decoded.emergencyType}</td><td>${escapeHtml(decoded.emergencyTypeLabel)}</td></tr>` +
-        `<tr><td>Priority</td><td>${decoded.priority}</td><td>${escapeHtml(decoded.priorityLabel)}</td></tr>` +
-        `<tr><td>ZoneHash</td><td>${decoded.zoneHash}</td><td>0x${toPaddedHex(decoded.zoneHash, 4)}</td></tr>` +
-        `<tr><td>TimestampMinutes</td><td>${decoded.timestampMinutes}</td><td>0x${toPaddedHex(decoded.timestampMinutes, 4)}</td></tr>` +
-        "</tbody></table></div>"
-      );
-      break;
-    }
-    case "envelope-wrap":
-      animateHexBytes(AUTOPLAY_DATA.envelopeHex, (index) => {
-        if (index < 22) {
-          return "hex-byte header";
-        }
-        if (index < 30) {
-          return "hex-byte payload";
-        }
-        return "hex-byte hmac";
-      });
-      break;
-    case "size-breakdown":
-      refs.autoplayEvidence.innerHTML = (
-        "<div class=\"byte-stream\">" +
-        `<span class="hex-byte header">Header: 22B</span>` +
-        `<span class="hex-byte payload">Payload: 8B</span>` +
-        `<span class="hex-byte hmac">HMAC: 12B</span>` +
-        "</div>" +
-        `<p><strong>Total envelope:</strong> ${AUTOPLAY_DATA.envelopeBytes} bytes</p>`
-      );
-      break;
-    case "signature-status":
-      refs.autoplayEvidence.innerHTML = (
-        "<p><strong>Signature verification:</strong> ✅ PASS</p>" +
-        "<p>Phase A evidence uses precomputed deterministic vectors. Interactive Web Crypto is added in Phase B.</p>"
-      );
-      break;
-    case "comparison":
-      refs.autoplayEvidence.innerHTML = (
-        "<div class=\"byte-stream\">" +
-        `<span class="hex-byte cap">CAP XML: ${AUTOPLAY_DATA.capBytes}B</span>` +
-        `<span class="hex-byte json">JSON: ${AUTOPLAY_DATA.jsonBytes}B</span>` +
-        `<span class="hex-byte payload">ECP Envelope: ${AUTOPLAY_DATA.envelopeBytes}B</span>` +
-        `<span class="hex-byte ecp">ECP UET: ${AUTOPLAY_DATA.uetBytes}B</span>` +
-        "</div>"
-      );
-      break;
-    default:
-      refs.autoplayEvidence.textContent = "";
-      break;
-  }
+function decodeInitialSample() {
+  refs.payloadInput.value = DEFAULT_SAMPLE_UET_HEX;
+  decodeCurrentInput();
 }
 
-function scheduleAutoplayStep() {
-  clearAutoplayTimers();
-  if (!state.autoplayPlaying) {
+function decodeCurrentInput() {
+  const raw = refs.payloadInput.value.trim();
+  if (!raw) {
+    hideActiveTooltip();
+    refs.decodeFeedback.textContent = "";
+    refs.decodeErrorPanel.hidden = true;
+    refs.decodeResultPanel.hidden = true;
+    state.lastDecoded = null;
+    setCopyButtonsEnabled(false);
     return;
   }
 
-  const step = AUTOPLAY_STEPS[state.autoplayIndex];
-  const delay = Math.max(800, Math.round(step.durationMs / state.autoplaySpeed));
-
-  state.autoplayStepTimer = window.setTimeout(() => {
-    state.autoplayIndex = (state.autoplayIndex + 1) % AUTOPLAY_STEPS.length;
-    renderAutoplayStep();
-    scheduleAutoplayStep();
-  }, delay);
-}
-
-function animateHexBytes(hex, classResolver) {
-  clearAutoplayAnimation();
-  const bytes = splitHexBytes(hex);
-  let visibleCount = 0;
-
-  const renderBytes = () => {
-    const html = bytes
-      .slice(0, visibleCount)
-      .map((byte, index) => `<span class="${classResolver(index)}">${byte}</span>`)
-      .join("");
-    refs.autoplayEvidence.innerHTML = `<div class="byte-stream">${html || "<span class=\"hex-byte\">...</span>"}</div>`;
-  };
-
-  renderBytes();
-  state.autoplayAnimationTimer = window.setInterval(() => {
-    visibleCount += 1;
-    renderBytes();
-    if (visibleCount >= bytes.length) {
-      clearAutoplayAnimation();
-    }
-  }, Math.max(45, Math.round(95 / state.autoplaySpeed)));
-}
-
-function clearAutoplayTimers() {
-  if (state.autoplayStepTimer !== null) {
-    window.clearTimeout(state.autoplayStepTimer);
-    state.autoplayStepTimer = null;
+  const result = tryDecodeUet(raw);
+  if (!result.ok) {
+    renderDecodeError(result.error);
+    return;
   }
-  clearAutoplayAnimation();
+
+  const decoded = result.value;
+  const roundtrip = encodeUet(pickComparableFields(decoded));
+  const roundtripOk = roundtrip.hex === decoded.valueHex && roundtrip.base64 === decoded.valueBase64;
+
+  state.lastDecoded = decoded;
+  refs.decodeErrorPanel.hidden = true;
+  refs.decodeResultPanel.hidden = false;
+  setCopyButtonsEnabled(true);
+
+  refs.validBadge.textContent = "Valid UET";
+  refs.validBadge.className = "badge badge-success";
+  refs.roundtripBadge.textContent = roundtripOk ? "Round-trip verified" : "Round-trip mismatch";
+  refs.roundtripBadge.className = roundtripOk ? "badge badge-success" : "badge badge-danger";
+  refs.decodedHex.textContent = decoded.valueHex;
+  refs.decodedBase64.textContent = decoded.valueBase64;
+  refs.decodedBitMap.innerHTML = renderBitMap(decoded.valueBinary);
+  refs.decodedHexMap.innerHTML = renderHexMap(decoded.valueHex);
+  refs.decodedFieldsBody.innerHTML = renderDecodedRows(decoded);
+  refs.decodeFeedback.textContent = "Decode completed. Fields and roundtrip status updated.";
+
+  if (state.lastTrackedDecodedHex !== decoded.valueHex) {
+    trackEvent(TRACKING_KEYS.decode);
+    state.lastTrackedDecodedHex = decoded.valueHex;
+  }
 }
 
-function clearAutoplayAnimation() {
-  if (state.autoplayAnimationTimer !== null) {
-    window.clearInterval(state.autoplayAnimationTimer);
-    state.autoplayAnimationTimer = null;
-  }
+function renderDecodeError(error) {
+  hideActiveTooltip();
+  refs.decodeResultPanel.hidden = true;
+  setCopyButtonsEnabled(false);
+  refs.decodeErrorPanel.hidden = false;
+  refs.errorWhat.textContent = error?.what ?? "Unable to decode payload.";
+  refs.errorWhy.textContent = error?.why ?? "Input does not match supported UET formats.";
+  refs.errorFix.textContent = error?.howToFix ?? "Use a valid 8-byte UET in hex or base64.";
+  refs.decodeFeedback.textContent = "Decode failed. See details below.";
 }
 
 function renderDecodedRows(decoded) {
@@ -704,7 +521,7 @@ function renderDecodedRows(decoded) {
       "<tr>" +
       "<td>" +
       `<div class="field-cell">${escapeHtml(spec.label)}` +
-      `<span class="tooltip-wrap">` +
+      "<span class=\"tooltip-wrap\">" +
       `<button type="button" class="tooltip-trigger" aria-describedby="${tooltipId}">?</button>` +
       `<span class="tooltip-text" role="tooltip" id="${tooltipId}">` +
       `<strong>What:</strong> ${escapeHtml(spec.what)}<br>` +
