@@ -13,6 +13,13 @@ import {
   verifyEnvelopeHmacHex,
   verifyFullVectors
 } from "./decoder.js";
+import {
+  buildScenarioFromAdvisor,
+  calculateBandwidth,
+  deriveBridgeFieldsFromJsonObject,
+  evaluateProtocols,
+  selectStrategy
+} from "./advisor.js";
 
 const TRACKING_KEYS = Object.freeze({
   open: "studio-open",
@@ -20,7 +27,11 @@ const TRACKING_KEYS = Object.freeze({
   verify: "studio-verify",
   encode: "studio-encode",
   codeCopy: "studio-codecopy",
-  debugCopy: "studio-debug-copy"
+  debugCopy: "studio-debug-copy",
+  advisor: "studio-advisor",
+  strategy: "studio-strategy",
+  bridge: "studio-bridge",
+  ctaStar: "studio-cta-star"
 });
 
 const TAB_NAMES = Object.freeze([
@@ -240,7 +251,10 @@ const state = {
   activeCodeTab: "one-liner",
   generatedCodeByTab: Object.create(null),
   lastVerifyReport: null,
-  starCtaShown: false
+  starCtaShown: false,
+  advisorEvaluation: null,
+  advisorBandwidth: null,
+  bridgeHex: ""
 };
 
 const refs = {};
@@ -251,6 +265,7 @@ function init() {
   setupTabs();
   setupDecode();
   setupBuild();
+  setupCompare();
   setupGenerate();
   setupVerify();
   setupTooltipOverlay();
@@ -325,6 +340,42 @@ function bindRefs() {
   refs.sizeBarEcp = mustGet("size-bar-ecp");
   refs.sizeSavings = mustGet("size-savings");
 
+  refs.advisorMessageKind = mustGet("advisor-message-kind");
+  refs.advisorPayloadSize = mustGet("advisor-payload-size");
+  refs.advisorPayloadUnknown = mustGet("advisor-payload-unknown");
+  refs.advisorTransport = mustGet("advisor-transport");
+  refs.advisorRecipientsBand = mustGet("advisor-recipients-band");
+  refs.advisorHumanReadable = mustGet("advisor-human-readable");
+  refs.advisorMessagesDay = mustGet("advisor-messages-day");
+  refs.advisorRunButton = mustGet("advisor-run-button");
+  refs.advisorTryItButton = mustGet("advisor-try-it-button");
+  refs.advisorFeedback = mustGet("advisor-feedback");
+  refs.advisorResultsBody = mustGet("advisor-results-body");
+  refs.advisorBandwidth = mustGet("advisor-bandwidth");
+  refs.advisorHybrid = mustGet("advisor-hybrid");
+
+  refs.strategyRecipientsRange = mustGet("strategy-recipients-range");
+  refs.strategyRecipientsInput = mustGet("strategy-recipients-input");
+  refs.strategyMessageSize = mustGet("strategy-message-size");
+  refs.strategyHasTemplate = mustGet("strategy-has-template");
+  refs.strategyHasDictionary = mustGet("strategy-has-dictionary");
+  refs.strategyRunButton = mustGet("strategy-run-button");
+  refs.strategyMode = mustGet("strategy-mode");
+  refs.strategyHops = mustGet("strategy-hops");
+  refs.strategyReason = mustGet("strategy-reason");
+  refs.strategyValueDirect = mustGet("strategy-value-direct");
+  refs.strategyValueCascade = mustGet("strategy-value-cascade");
+  refs.strategyBarDirect = mustGet("strategy-bar-direct");
+  refs.strategyBarCascade = mustGet("strategy-bar-cascade");
+
+  refs.bridgeJsonInput = mustGet("bridge-json-input");
+  refs.bridgeRunButton = mustGet("bridge-run-button");
+  refs.bridgeCopyHexButton = mustGet("bridge-copy-hex-button");
+  refs.bridgeFeedback = mustGet("bridge-feedback");
+  refs.bridgeEcpHex = mustGet("bridge-ecp-hex");
+  refs.bridgeSizeSummary = mustGet("bridge-size-summary");
+  refs.bridgeCodeBlock = mustGet("bridge-code-block");
+
   refs.codeTabBar = mustGet("code-tab-bar");
   refs.codeTabButtons = Array.from(document.querySelectorAll(".code-tab-button[data-code-tab]"));
   refs.generateScenarioLabel = mustGet("generate-scenario-label");
@@ -340,6 +391,7 @@ function bindRefs() {
   refs.verifyToggle = mustGet("verify-toggle");
 
   refs.starCta = mustGet("star-cta");
+  refs.starCtaLink = mustGet("star-cta-link");
 }
 
 function setupTracking() {
@@ -348,6 +400,10 @@ function setupTracking() {
   if (refCode) {
     trackEvent(`studio-ref-${refCode}`);
   }
+
+  refs.starCtaLink.addEventListener("click", () => {
+    trackEvent(TRACKING_KEYS.ctaStar);
+  });
 }
 
 function setupTabs() {
@@ -512,6 +568,230 @@ function setupBuild() {
   });
 
   applyPreset("fire", false);
+}
+
+function setupCompare() {
+  refs.advisorPayloadUnknown.addEventListener("change", () => {
+    syncAdvisorPayloadUnknownState();
+  });
+
+  refs.advisorRunButton.addEventListener("click", () => {
+    runAdvisorEvaluation(true);
+  });
+
+  refs.advisorTryItButton.addEventListener("click", () => {
+    applyAdvisorToBuilder();
+  });
+
+  refs.strategyRecipientsRange.addEventListener("input", () => {
+    syncStrategyRecipientInputs("range");
+  });
+  refs.strategyRecipientsInput.addEventListener("input", () => {
+    syncStrategyRecipientInputs("input");
+  });
+  refs.strategyRunButton.addEventListener("click", () => {
+    runStrategySelector(true);
+  });
+
+  refs.bridgeRunButton.addEventListener("click", () => {
+    runJsonBridge(true);
+  });
+  refs.bridgeCopyHexButton.addEventListener("click", async () => {
+    if (!state.bridgeHex) {
+      return;
+    }
+    trackEvent(TRACKING_KEYS.codeCopy);
+    const copied = await copyTextBestEffort(state.bridgeHex);
+    refs.bridgeFeedback.textContent = copied
+      ? "Bridge ECP hex copied."
+      : "Clipboard denied. Select the ECP hex value and copy manually.";
+    if (copied) {
+      revealStarCta();
+    }
+  });
+
+  syncAdvisorPayloadUnknownState();
+  runAdvisorEvaluation(false);
+  runStrategySelector(false);
+  runJsonBridge(false);
+}
+
+function syncAdvisorPayloadUnknownState() {
+  const useDefaultPayload = refs.advisorPayloadUnknown.checked;
+  refs.advisorPayloadSize.disabled = useDefaultPayload;
+  if (useDefaultPayload) {
+    refs.advisorPayloadSize.value = "200";
+  }
+}
+
+function readAdvisorAnswersFromControls() {
+  return {
+    messageKind: refs.advisorMessageKind.value,
+    payloadSizeBytes: refs.advisorPayloadSize.value,
+    payloadUnknown: refs.advisorPayloadUnknown.checked,
+    transport: refs.advisorTransport.value,
+    recipientsBand: refs.advisorRecipientsBand.value,
+    humanReadable: refs.advisorHumanReadable.value,
+    messagesPerDay: refs.advisorMessagesDay.value
+  };
+}
+
+function runAdvisorEvaluation(trackUsage) {
+  const answers = readAdvisorAnswersFromControls();
+  const evaluation = evaluateProtocols(answers);
+  const bandwidth = calculateBandwidth(answers);
+  state.advisorEvaluation = evaluation;
+  state.advisorBandwidth = bandwidth;
+
+  refs.advisorResultsBody.innerHTML = evaluation.rows
+    .map((row) => {
+      const fitnessClass = `fitness-${row.fitness.toLowerCase()}`;
+      const topBadge = row.isTopProtocol ? " <span class=\"badge badge-success compare-best-badge\">Top</span>" : "";
+      return (
+        "<tr>" +
+        `<td>${escapeHtml(row.label)}${topBadge}</td>` +
+        `<td>${escapeHtml(row.estimatedLabel)}</td>` +
+        `<td><span class="fitness-pill ${fitnessClass}">${escapeHtml(row.fitness)}</span></td>` +
+        `<td>${escapeHtml(row.reason)}</td>` +
+        "</tr>"
+      );
+    })
+    .join("");
+
+  refs.advisorFeedback.textContent = `Top recommendation: ${evaluation.bestProtocolLabel} (estimated).`;
+  refs.advisorBandwidth.textContent = bandwidth.summary;
+  refs.advisorHybrid.textContent = evaluation.hybridSuggestion;
+  refs.advisorTryItButton.disabled = false;
+
+  const ecpForStrategy = evaluation.rows.find((row) => row.protocolId === "ecp-envelope")
+    ?? evaluation.rows.find((row) => row.protocolId === "ecp-uet");
+  if (ecpForStrategy) {
+    refs.strategyMessageSize.value = String(ecpForStrategy.estimatedBytes);
+  }
+
+  if (trackUsage) {
+    trackEvent(TRACKING_KEYS.advisor);
+    trackEvent(`studio-advisor-result-${sanitizeTrackingToken(evaluation.bestProtocolId)}`);
+  }
+}
+
+function applyAdvisorToBuilder() {
+  if (!state.advisorEvaluation) {
+    return;
+  }
+
+  const fields = buildScenarioFromAdvisor(state.advisorEvaluation.answers);
+  state.buildFields = fields;
+  refs.buildPreset.value = "custom";
+  writeBuildControls(fields);
+  renderBuildOutput(true);
+  refs.buildFeedback.textContent = "Scenario imported from Protocol Advisor.";
+  window.location.hash = "#build";
+}
+
+function syncStrategyRecipientInputs(source) {
+  if (source === "range") {
+    refs.strategyRecipientsInput.value = refs.strategyRecipientsRange.value;
+    return;
+  }
+
+  const clamped = clampNumber(refs.strategyRecipientsInput.value, 1, 1000, Number(refs.strategyRecipientsRange.value));
+  refs.strategyRecipientsInput.value = String(clamped);
+  refs.strategyRecipientsRange.value = String(clamped);
+}
+
+function runStrategySelector(trackUsage) {
+  syncStrategyRecipientInputs("input");
+  const result = selectStrategy({
+    recipients: refs.strategyRecipientsInput.value,
+    messageSizeBytes: refs.strategyMessageSize.value,
+    hasTemplate: refs.strategyHasTemplate.checked,
+    hasDictionary: refs.strategyHasDictionary.checked
+  });
+
+  refs.strategyMode.textContent = `Selected mode: ${result.mode} (${result.selectedCostBytes} B estimated)`;
+  refs.strategyHops.textContent = `Estimated hops: ${result.hopCount} | Effective payload: ${result.effectiveMessageBytes} B`;
+  refs.strategyReason.textContent = result.reasoning;
+  refs.strategyValueDirect.textContent = `${result.directCostBytes} B`;
+  refs.strategyValueCascade.textContent = `${result.cascadeCostBytes} B`;
+
+  const maxCost = Math.max(result.directCostBytes, result.cascadeCostBytes, 1);
+  refs.strategyBarDirect.style.width = `${((result.directCostBytes / maxCost) * 100).toFixed(2)}%`;
+  refs.strategyBarCascade.style.width = `${((result.cascadeCostBytes / maxCost) * 100).toFixed(2)}%`;
+
+  if (trackUsage) {
+    trackEvent(TRACKING_KEYS.strategy);
+  }
+}
+
+function runJsonBridge(trackUsage) {
+  const rawJson = refs.bridgeJsonInput.value.trim();
+  if (!rawJson) {
+    refs.bridgeFeedback.textContent = "Paste JSON payload first.";
+    refs.bridgeEcpHex.textContent = "";
+    refs.bridgeSizeSummary.textContent = "";
+    refs.bridgeCodeBlock.textContent = "";
+    refs.bridgeCopyHexButton.disabled = true;
+    state.bridgeHex = "";
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch (_) {
+    refs.bridgeFeedback.textContent = "Invalid JSON. Fix syntax and try again.";
+    refs.bridgeEcpHex.textContent = "";
+    refs.bridgeSizeSummary.textContent = "";
+    refs.bridgeCodeBlock.textContent = "";
+    refs.bridgeCopyHexButton.disabled = true;
+    state.bridgeHex = "";
+    return;
+  }
+
+  const bridgeResult = deriveBridgeFieldsFromJsonObject(parsed);
+  const encoded = tryEncodeUet(bridgeResult.fields);
+  if (!encoded.ok) {
+    refs.bridgeFeedback.textContent = encoded.error?.what ?? "Unable to map JSON to ECP fields.";
+    refs.bridgeEcpHex.textContent = "";
+    refs.bridgeSizeSummary.textContent = "";
+    refs.bridgeCodeBlock.textContent = "";
+    refs.bridgeCopyHexButton.disabled = true;
+    state.bridgeHex = "";
+    return;
+  }
+
+  state.bridgeHex = encoded.value.hex;
+  refs.bridgeEcpHex.textContent = encoded.value.hex;
+  refs.bridgeCopyHexButton.disabled = false;
+
+  const jsonBytes = measureUtf8Bytes(rawJson);
+  const ecpBytes = 8;
+  const savingsPercent = jsonBytes <= 0
+    ? 0
+    : Math.max(0, ((jsonBytes - ecpBytes) / jsonBytes) * 100);
+
+  refs.bridgeSizeSummary.textContent = `Estimated conversion: JSON ${jsonBytes} B -> ECP UET ${ecpBytes} B (${savingsPercent.toFixed(2)}% smaller).`;
+  refs.bridgeCodeBlock.textContent = buildBridgeMigrationCode(rawJson, encoded.value.hex);
+  highlightCodeBlock(refs.bridgeCodeBlock);
+  refs.bridgeFeedback.textContent = "JSON mapped to ECP-equivalent token.";
+
+  if (trackUsage) {
+    trackEvent(TRACKING_KEYS.bridge);
+  }
+}
+
+function buildBridgeMigrationCode(jsonPayload, expectedHex) {
+  const jsonLiteral = JSON.stringify(jsonPayload);
+  return `using ECP.Compatibility;
+using System;
+
+string jsonPayload = ${jsonLiteral};
+byte[] ecpBytes = JsonBridge.ToEcp(jsonPayload);
+string ecpHex = Convert.ToHexString(ecpBytes);
+
+// Studio reference (estimated mapping): ${expectedHex}
+Console.WriteLine(ecpHex);`;
 }
 
 function setupGenerate() {
@@ -949,8 +1229,8 @@ function renderSizeComparison(fields, ecpBytes) {
   refs.sizeBarJson.style.width = `${((jsonBytes / maxValue) * 100).toFixed(2)}%`;
   refs.sizeBarEcp.style.width = `${((ecpBytes / maxValue) * 100).toFixed(2)}%`;
 
-  const jsonSavings = Math.max(0, Math.round(((jsonBytes - ecpBytes) / jsonBytes) * 100));
-  const capSavings = Math.max(0, Math.round(((capBytes - ecpBytes) / capBytes) * 100));
+  const jsonSavings = Math.max(0, ((jsonBytes - ecpBytes) / jsonBytes) * 100).toFixed(2);
+  const capSavings = Math.max(0, ((capBytes - ecpBytes) / capBytes) * 100).toFixed(2);
   refs.sizeSavings.textContent = `Estimated savings: ${jsonSavings}% vs JSON, ${capSavings}% vs CAP XML.`;
 }
 
@@ -983,9 +1263,13 @@ function renderActiveCodeTab() {
 }
 
 function highlightGeneratedCode() {
+  highlightCodeBlock(refs.generateCodeBlock);
+}
+
+function highlightCodeBlock(codeBlock) {
   const prism = window.Prism;
   if (prism && typeof prism.highlightElement === "function") {
-    prism.highlightElement(refs.generateCodeBlock);
+    prism.highlightElement(codeBlock);
   }
 }
 
@@ -1385,6 +1669,10 @@ function countSetBits(value) {
     remaining >>>= 1;
   }
   return count;
+}
+
+function measureUtf8Bytes(text) {
+  return new TextEncoder().encode(String(text)).length;
 }
 
 function clampNumber(rawValue, minValue, maxValue, fallback) {

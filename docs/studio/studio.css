@@ -705,6 +705,147 @@ button:disabled {
   background: var(--ecp);
 }
 
+.compare-layout,
+.compare-subgrid {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.compare-layout {
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+}
+
+.compare-subgrid {
+  margin-top: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compare-panel {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.55rem;
+}
+
+.compare-panel h3 {
+  margin: 0 0 0.34rem;
+  font-size: 0.9rem;
+}
+
+.compare-panel label {
+  display: block;
+  margin: 0.44rem 0 0.18rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.compare-inline-check {
+  margin: 0.42rem 0 0.12rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.compare-inline-check input {
+  width: auto;
+  margin: 0;
+}
+
+.provenance-badge {
+  display: inline-block;
+  padding: 0.08rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+.provenance-estimated {
+  color: #ffe2a6;
+  border: 1px solid rgba(255, 209, 102, 0.5);
+  background: rgba(255, 209, 102, 0.14);
+}
+
+.compare-table {
+  min-width: 700px;
+}
+
+.compare-best-badge {
+  margin-left: 0.28rem;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.68rem;
+}
+
+.fitness-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.08rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.fitness-best {
+  color: #b8ffd9;
+  border-color: rgba(49, 224, 139, 0.58);
+  background: rgba(49, 224, 139, 0.2);
+}
+
+.fitness-good {
+  color: #d7e7ff;
+  border-color: rgba(103, 162, 255, 0.58);
+  background: rgba(103, 162, 255, 0.2);
+}
+
+.fitness-ok {
+  color: #ffe5b1;
+  border-color: rgba(255, 209, 102, 0.55);
+  background: rgba(255, 209, 102, 0.2);
+}
+
+.fitness-poor {
+  color: #ffc3c3;
+  border-color: rgba(255, 107, 107, 0.56);
+  background: rgba(255, 107, 107, 0.2);
+}
+
+.compare-bandwidth,
+.compare-hybrid {
+  margin-top: 0.48rem;
+  font-size: 0.82rem;
+}
+
+.claim-list {
+  margin: 0.22rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.22rem;
+}
+
+.claim-list li {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.claim-link {
+  margin-left: 0.2rem;
+  text-decoration: none;
+}
+
+.coverage-table td,
+.coverage-table th {
+  font-size: 0.84rem;
+}
+
 .code-tab-bar {
   margin-top: 0.45rem;
   display: flex;
@@ -884,6 +1025,11 @@ button:disabled {
 
 @media (max-width: 1000px) {
   .build-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-layout,
+  .compare-subgrid {
     grid-template-columns: 1fr;
   }
 }

@@ -13,6 +13,27 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="ECP Studio - Decode, Build, Compare Binary Protocols">
   <meta name="twitter:description" content="Paste hex or base64 and verify deterministic ECP vectors directly in your browser.">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "ECP Studio",
+  "description": "Interactive binary protocol decoder, builder, and comparator",
+  "url": "https://egonex-code.github.io/ecp-protocol/studio/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Any (browser-based)",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Organization",
+    "name": "Egonex S.R.L.",
+    "url": "https://www.egonex-group.com"
+  }
+}
+  </script>
   <link rel="stylesheet" href="./studio.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
 </head>
@@ -297,13 +318,202 @@
     </section>
 
     <section id="tab-compare" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-compare">
-      <article class="card placeholder-card">
-        <div class="placeholder-body">
-          <p class="placeholder-icon" aria-hidden="true">⚖️</p>
-          <h2>Compare</h2>
-          <p>Protocol Advisor - compare JSON vs Protobuf vs ECP vs CAP for your use case.</p>
-          <p>Coming in Phase C.</p>
+      <article class="card compare-card" aria-labelledby="compare-title">
+        <header class="card-header">
+          <h2 id="compare-title">Protocol Advisor</h2>
+          <p>Estimate JSON vs Protobuf vs ECP vs CAP XML for your specific scenario. Outputs are <strong>estimated</strong> and intentionally honest.</p>
+        </header>
+
+        <div class="compare-layout">
+          <section class="compare-panel" aria-label="Protocol advisor input">
+            <h3>Scenario input</h3>
+
+            <label for="advisor-message-kind">1) What are you sending?</label>
+            <select id="advisor-message-kind">
+              <option value="alert">Alert</option>
+              <option value="telemetry">Sensor telemetry</option>
+              <option value="command">Command</option>
+              <option value="beacon">Status beacon</option>
+              <option value="generic">Generic message</option>
+            </select>
+
+            <label for="advisor-payload-size">2) Current payload size (bytes)</label>
+            <input id="advisor-payload-size" type="number" min="1" max="65535" value="200">
+            <label class="compare-inline-check" for="advisor-payload-unknown">
+              <input id="advisor-payload-unknown" type="checkbox">
+              I don't know (use default 200 B)
+            </label>
+
+            <label for="advisor-transport">3) Transport channel</label>
+            <select id="advisor-transport">
+              <option value="wifi">WiFi/Ethernet</option>
+              <option value="ble">BLE</option>
+              <option value="lora" selected>LoRa</option>
+              <option value="satellite">Satellite</option>
+              <option value="sms">SMS</option>
+              <option value="mixed">Mixed</option>
+            </select>
+
+            <label for="advisor-recipients-band">4) How many recipients?</label>
+            <select id="advisor-recipients-band">
+              <option value="1">1</option>
+              <option value="2-10">2-10</option>
+              <option value="10-100" selected>10-100</option>
+              <option value="100-1000">100-1000</option>
+              <option value="1000+">1000+</option>
+            </select>
+
+            <label for="advisor-human-readable">5) Must be human-readable?</label>
+            <select id="advisor-human-readable">
+              <option value="yes">Yes</option>
+              <option value="no" selected>No</option>
+              <option value="partial">Partially (external JSON, internal binary)</option>
+            </select>
+
+            <label for="advisor-messages-day">Messages per day (for bandwidth estimate)</label>
+            <input id="advisor-messages-day" type="number" min="1" max="5000000" value="1000">
+
+            <div class="inline-actions">
+              <button id="advisor-run-button" type="button" class="btn-primary">Evaluate protocols</button>
+              <button id="advisor-try-it-button" type="button" class="btn-secondary" disabled>Try it in Builder &rarr;</button>
+            </div>
+            <p id="advisor-feedback" class="feedback" aria-live="polite"></p>
+          </section>
+
+          <section class="compare-panel" aria-label="Protocol advisor output">
+            <h3>Recommendation table <span class="provenance-badge provenance-estimated">ESTIMATED</span></h3>
+            <div class="table-wrap">
+              <table class="decoded-table compare-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Format</th>
+                    <th scope="col">Estimated size</th>
+                    <th scope="col">Fitness</th>
+                    <th scope="col">Why</th>
+                  </tr>
+                </thead>
+                <tbody id="advisor-results-body"></tbody>
+              </table>
+            </div>
+            <p class="field-help">
+              Sizes are estimated from typical protocol overhead. For exact measurements, benchmark with your actual payloads.
+            </p>
+            <p id="advisor-bandwidth" class="field-help compare-bandwidth"></p>
+            <p id="advisor-hybrid" class="field-help compare-hybrid"></p>
+          </section>
         </div>
+
+        <div class="compare-subgrid">
+          <section class="compare-panel" aria-label="Strategy selector">
+            <h3>Strategy Selector</h3>
+            <p class="field-help">
+              Uses public SDK defaults (Direct=4, MiniCascade=12, FanOut=2.5)
+              <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Strategy/NeverWorseOptions.cs#L15" target="_blank" rel="noopener noreferrer" aria-label="Verify strategy defaults in source code">🔎</a>
+            </p>
+
+            <label for="strategy-recipients-input">Recipients</label>
+            <div class="range-pair">
+              <input id="strategy-recipients-range" type="range" min="1" max="1000" step="1" value="12">
+              <input id="strategy-recipients-input" type="number" min="1" max="1000" step="1" value="12">
+            </div>
+
+            <label for="strategy-message-size">Message size (bytes)</label>
+            <input id="strategy-message-size" type="number" min="1" max="65535" step="1" value="42">
+
+            <label class="compare-inline-check" for="strategy-has-template">
+              <input id="strategy-has-template" type="checkbox">
+              Has template savings
+            </label>
+            <label class="compare-inline-check" for="strategy-has-dictionary">
+              <input id="strategy-has-dictionary" type="checkbox">
+              Has dictionary savings
+            </label>
+
+            <div class="inline-actions">
+              <button id="strategy-run-button" type="button" class="btn-secondary">Run selector</button>
+            </div>
+
+            <p id="strategy-mode" class="feedback" aria-live="polite"></p>
+            <p id="strategy-hops" class="field-help"></p>
+            <p id="strategy-reason" class="field-help"></p>
+
+            <section class="size-compare">
+              <h3>Estimated network cost</h3>
+              <div class="size-row">
+                <div class="size-row-head">
+                  <span>Direct</span>
+                  <span id="strategy-value-direct">0 B</span>
+                </div>
+                <div class="size-track"><span id="strategy-bar-direct" class="size-fill size-fill-json"></span></div>
+              </div>
+              <div class="size-row">
+                <div class="size-row-head">
+                  <span>Cascade</span>
+                  <span id="strategy-value-cascade">0 B</span>
+                </div>
+                <div class="size-track"><span id="strategy-bar-cascade" class="size-fill size-fill-ecp"></span></div>
+              </div>
+            </section>
+          </section>
+
+          <section class="compare-panel" aria-label="JSON bridge">
+            <h3>JSON Bridge</h3>
+            <p class="field-help">Paste JSON, map to ECP-equivalent UET fields, and generate migration code.</p>
+            <textarea id="bridge-json-input" rows="6" spellcheck="false" aria-label="JSON bridge input">{ "event":"Fire", "priority":"Critical", "zoneHash":1001, "timestampMinutes":12345, "confirmHash":0 }</textarea>
+            <div class="inline-actions">
+              <button id="bridge-run-button" type="button" class="btn-secondary">Convert JSON to ECP</button>
+              <button id="bridge-copy-hex-button" type="button" class="btn-inline-copy" disabled>Copy ECP hex</button>
+            </div>
+            <p id="bridge-feedback" class="feedback" aria-live="polite"></p>
+            <div class="raw-inline">
+              <div class="raw-inline-item">
+                <span class="raw-inline-label">ECP Hex</span>
+                <code id="bridge-ecp-hex"></code>
+              </div>
+            </div>
+            <p id="bridge-size-summary" class="field-help"></p>
+            <pre class="generated-pre"><code id="bridge-code-block" class="language-csharp"></code></pre>
+          </section>
+        </div>
+
+        <section class="compare-panel" aria-label="SDK coverage">
+          <h3>SDK Package Coverage in Studio</h3>
+          <div class="table-wrap">
+            <table class="decoded-table coverage-table">
+              <thead>
+                <tr>
+                  <th scope="col">Package</th>
+                  <th scope="col">In Studio</th>
+                  <th scope="col">How</th>
+                  <th scope="col">Phase</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>ECP.Core</td><td>Full interactive</td><td>Encode/decode/envelope/HMAC/code gen</td><td>A+B</td></tr>
+                <tr><td>ECP.Cascade</td><td>Code walkthrough</td><td>Strategy selector + future cascade visualization</td><td>C/E</td></tr>
+                <tr><td>ECP.Compatibility</td><td>Full interactive</td><td>JSON Bridge (JSON -&gt; ECP)</td><td>C</td></tr>
+                <tr><td>ECP.Registry</td><td>Code walkthrough</td><td>Public links + dictionary/template concept</td><td>C</td></tr>
+                <tr><td>ECP.DependencyInjection</td><td>Code walkthrough</td><td>DI Setup snippets in Generate</td><td>B</td></tr>
+                <tr><td>ECP.Standard</td><td>Code walkthrough</td><td>AddEcpStandard() generation pattern</td><td>B</td></tr>
+                <tr><td>ECP.Transport.Abstractions</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
+                <tr><td>ECP.Transport.WebSocket</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
+                <tr><td>ECP.Transport.SignalR</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="compare-panel" aria-label="Claim to code links">
+          <h3>Claim-to-code trace</h3>
+          <ul class="claim-list">
+            <li><span>UET = 8 bytes</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Token/UniversalEmergencyToken.cs#L18" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>uet-fire-critical-001</code></li>
+            <li><span>Envelope header = 22 bytes</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Envelope/EmergencyEnvelope.cs#L22" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>env-signed-uet-h12-001</code></li>
+            <li><span>Magic = 0xEC50</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Envelope/EmergencyEnvelope.cs#L18" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>env-signed-uet-h12-001</code></li>
+            <li><span>HMAC default = 12 bytes (range 8-16)</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Security/EcpSecurity.cs#L17" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>hmac-data-12-002</code></li>
+            <li><span>Canonical benchmark sizes are measured from generated payloads</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/samples/ProofCard/Program.cs#L31" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>ProofCard CLI</code></li>
+            <li><span>NeverWorse defaults: Direct=4, Mini=12, FanOut=2.5</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Strategy/NeverWorseOptions.cs#L15" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>public defaults</code></li>
+          </ul>
+        </section>
       </article>
     </section>
 
@@ -357,7 +567,7 @@
   <section id="star-cta" class="star-cta" hidden>
     <div class="star-cta-inner">
       <p>Getting value from ECP Studio?</p>
-      <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">Star on GitHub &rarr;</a>
+      <a id="star-cta-link" href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">Star on GitHub &rarr;</a>
     </div>
   </section>
 
