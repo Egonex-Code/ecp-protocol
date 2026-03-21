@@ -19,8 +19,8 @@
   <header class="top-shell">
     <div class="shell-inner">
       <a class="brand-link" href="../proof/" aria-label="Back to ECP Proof">
-        <span class="brand-chip">ECP Studio</span>
-        <span class="brand-sub">Developer tooling for deterministic protocol checks</span>
+        <img class="brand-logo" src="./logoEgonex.png" alt="Egonex" width="140" height="36">
+        <span class="brand-title">ECP Studio</span>
       </a>
       <nav class="top-nav" aria-label="Primary links">
         <a href="../proof/">Proof</a>
@@ -30,67 +30,22 @@
   </header>
 
   <main class="studio-main">
-    <section class="hero-stack" aria-labelledby="studio-title">
-      <header class="section-header">
-        <p class="eyebrow">Don't trust us. Verify.</p>
-        <h1 id="studio-title">Decode and verify ECP UET payloads in seconds</h1>
-        <p>
-          Same visual language as Proof, deeper utility for real debugging workflows.
-          Autoplay shows the canonical evidence chain, while Paste &amp; Decode validates your payload instantly.
-        </p>
-      </header>
-
-      <article class="card autoplay-card" aria-labelledby="autoplay-title">
-        <header class="card-header">
-          <h2 id="autoplay-title">Autoplay evidence (Phase A)</h2>
-          <p>Canonical vector walkthrough with deterministic bytes from public test vectors.</p>
-        </header>
-
-        <div class="autoplay-layout">
-          <ol id="autoplay-steps" class="autoplay-steps" aria-label="Autoplay steps"></ol>
-
-          <section class="autoplay-panel" aria-live="polite">
-            <p id="autoplay-step-title" class="autoplay-step-title"></p>
-            <p id="autoplay-step-description" class="autoplay-step-description"></p>
-            <div id="autoplay-evidence" class="autoplay-evidence"></div>
-            <p id="autoplay-source" class="autoplay-source"></p>
-          </section>
-        </div>
-
-        <div class="autoplay-controls">
-          <button id="autoplay-play-pause" type="button" class="btn-primary">Pause</button>
-          <label for="autoplay-speed">Speed</label>
-          <select id="autoplay-speed" aria-label="Autoplay speed">
-            <option value="0.5">0.5x</option>
-            <option value="1" selected>1x</option>
-            <option value="2">2x</option>
-          </select>
-          <button id="autoplay-reset" type="button" class="btn-secondary">Reset &amp; Replay</button>
-        </div>
-      </article>
-
+    <section class="hero-stack" aria-label="ECP Studio decode tool">
       <article class="card decode-card" aria-labelledby="decode-title">
         <header class="card-header">
-          <h2 id="decode-title">Paste &amp; Decode UET</h2>
-          <p>Accepted formats: hex (with optional spaces/0x), base64, base64url.</p>
+          <h1 id="decode-title">Paste hex or base64 to decode instantly</h1>
         </header>
 
-        <label for="payload-input" class="field-label">Payload</label>
         <textarea
           id="payload-input"
-          rows="3"
+          rows="1"
           spellcheck="false"
-          placeholder="Paste hex or base64 to decode instantly, e.g. 0C000FA4C0E40000 or DAAPpMDkAAA="
+          aria-label="Payload"
+          placeholder="Hex or base64/base64url (auto-decodes on paste), e.g. 0C000FA4C0E40000 or DAAPpMDkAAA="
           aria-describedby="payload-help"></textarea>
         <p id="payload-help" class="field-help">
-          Decoder is strict: UET must be exactly 8 bytes (16 hex chars).
+          Auto-decodes as you type. UET must be exactly 8 bytes (16 hex chars).
         </p>
-
-        <div class="decode-actions">
-          <button id="decode-button" type="button" class="btn-primary">Decode now</button>
-          <button id="copy-hex-button" type="button" class="btn-secondary" disabled>Copy hex</button>
-          <button id="copy-base64-button" type="button" class="btn-secondary" disabled>Copy base64</button>
-        </div>
 
         <p id="decode-feedback" class="feedback" aria-live="polite"></p>
 
@@ -107,20 +62,25 @@
             <span id="roundtrip-badge" class="badge badge-success">Round-trip verified</span>
           </div>
 
-          <div class="raw-grid">
-            <article>
-              <h3>Hex</h3>
+          <div class="raw-inline" aria-label="Raw values">
+            <div class="raw-inline-item">
+              <span class="raw-inline-label">Hex</span>
               <code id="decoded-hex"></code>
-            </article>
-            <article>
-              <h3>Base64</h3>
+              <button id="copy-hex-button" type="button" class="btn-inline-copy" disabled>Copy</button>
+            </div>
+            <div class="raw-inline-item">
+              <span class="raw-inline-label">Base64</span>
               <code id="decoded-base64"></code>
-            </article>
-            <article class="raw-grid-wide">
+              <button id="copy-base64-button" type="button" class="btn-inline-copy" disabled>Copy</button>
+            </div>
+          </div>
+
+          <div class="raw-panels">
+            <article>
               <h3>Bit map (64 bits)</h3>
               <div id="decoded-bit-map" class="bit-map"></div>
             </article>
-            <article class="raw-grid-wide">
+            <article>
               <h3>Hex byte map</h3>
               <div id="decoded-hex-map" class="hex-map"></div>
             </article>
@@ -141,14 +101,55 @@
           </div>
         </section>
 
-        <section class="verify-block" aria-labelledby="verify-title">
-          <h3 id="verify-title">Verify decoder (core suite)</h3>
-          <p>Runs 8 deterministic vectors with decode + roundtrip checks directly in your browser.</p>
-          <button id="verify-button" type="button" class="btn-primary">Verify core suite (8 vectors)</button>
-          <p id="verify-summary" class="verify-summary" aria-live="polite"></p>
-          <ul id="verify-results" class="verify-results" aria-live="polite"></ul>
-        </section>
       </article>
+
+      <article class="card verify-card" aria-labelledby="verify-title">
+        <header class="card-header">
+          <h2 id="verify-title">Verify decoder (core suite)</h2>
+          <p>Runs 8 deterministic vectors with decode + roundtrip checks directly in your browser.</p>
+        </header>
+        <p class="verify-engine-note">Tests the decoder engine itself, not your input.</p>
+        <button id="verify-button" type="button" class="btn-primary">Verify core suite (8 vectors)</button>
+        <div id="verify-results-wrap" class="verify-results-wrap" hidden>
+          <div class="verify-results-header">
+            <p id="verify-summary" class="verify-summary" aria-live="polite"></p>
+            <button id="verify-toggle" type="button" class="btn-inline-copy" aria-expanded="true">Hide details</button>
+          </div>
+          <ul id="verify-results" class="verify-results" aria-live="polite"></ul>
+        </div>
+      </article>
+
+      <details id="autoplay-details" class="autoplay-details">
+        <summary>How it works (step-by-step evidence)</summary>
+        <article class="card autoplay-card" aria-labelledby="autoplay-title">
+          <header class="card-header">
+            <h2 id="autoplay-title">Autoplay evidence (Phase A)</h2>
+            <p>Canonical vector walkthrough with deterministic bytes from public test vectors.</p>
+          </header>
+
+          <div class="autoplay-layout">
+            <ol id="autoplay-steps" class="autoplay-steps" aria-label="Autoplay steps"></ol>
+
+            <section class="autoplay-panel" aria-live="polite">
+              <p id="autoplay-step-title" class="autoplay-step-title"></p>
+              <p id="autoplay-step-description" class="autoplay-step-description"></p>
+              <div id="autoplay-evidence" class="autoplay-evidence"></div>
+              <p id="autoplay-source" class="autoplay-source"></p>
+            </section>
+          </div>
+
+          <div class="autoplay-controls">
+            <button id="autoplay-play-pause" type="button" class="btn-primary">Play</button>
+            <label for="autoplay-speed">Speed</label>
+            <select id="autoplay-speed" aria-label="Autoplay speed">
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="2">2x</option>
+            </select>
+            <button id="autoplay-reset" type="button" class="btn-secondary">Reset &amp; Replay</button>
+          </div>
+        </article>
+      </details>
     </section>
   </main>
 

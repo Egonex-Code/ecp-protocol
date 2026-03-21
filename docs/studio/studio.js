@@ -155,13 +155,14 @@ const FIELD_SPECS = Object.freeze([
 
 const state = {
   autoplayIndex: 0,
-  autoplayPlaying: true,
+  autoplayPlaying: false,
   autoplaySpeed: 1,
   autoplayStepTimer: null,
   autoplayAnimationTimer: null,
   decodeDebounceTimer: null,
   lastDecoded: null,
-  lastTrackedDecodedHex: ""
+  lastTrackedDecodedHex: "",
+  activeTooltipTrigger: null
 };
 
 const refs = {};
@@ -172,6 +173,7 @@ function init() {
   setupAutoplay();
   setupDecode();
   setupVerify();
+  setupTooltipAutoFlip();
   decodeInitialSample();
 }
 
@@ -181,12 +183,12 @@ function bindRefs() {
   refs.autoplayStepDescription = mustGet("autoplay-step-description");
   refs.autoplayEvidence = mustGet("autoplay-evidence");
   refs.autoplaySource = mustGet("autoplay-source");
+  refs.autoplayDetails = mustGet("autoplay-details");
   refs.autoplayPlayPause = mustGet("autoplay-play-pause");
   refs.autoplaySpeed = mustGet("autoplay-speed");
   refs.autoplayReset = mustGet("autoplay-reset");
 
   refs.payloadInput = mustGet("payload-input");
-  refs.decodeButton = mustGet("decode-button");
   refs.copyHexButton = mustGet("copy-hex-button");
   refs.copyBase64Button = mustGet("copy-base64-button");
   refs.decodeFeedback = mustGet("decode-feedback");
@@ -204,8 +206,10 @@ function bindRefs() {
   refs.decodedFieldsBody = mustGet("decoded-fields-body");
 
   refs.verifyButton = mustGet("verify-button");
+  refs.verifyResultsWrap = mustGet("verify-results-wrap");
   refs.verifySummary = mustGet("verify-summary");
   refs.verifyResults = mustGet("verify-results");
+  refs.verifyToggle = mustGet("verify-toggle");
 }
 
 function setupTracking() {
@@ -257,16 +261,38 @@ function setupAutoplay() {
   refs.autoplayReset.addEventListener("click", () => {
     clearAutoplayTimers();
     state.autoplayIndex = 0;
-    state.autoplayPlaying = true;
-    refs.autoplayPlayPause.textContent = "Pause";
+    state.autoplayPlaying = refs.autoplayDetails.open;
+    refs.autoplayPlayPause.textContent = state.autoplayPlaying ? "Pause" : "Play";
     refs.autoplaySpeed.value = "1";
     state.autoplaySpeed = 1;
     renderAutoplayStep();
-    scheduleAutoplayStep();
+    if (state.autoplayPlaying) {
+      scheduleAutoplayStep();
+    }
   });
 
+  refs.autoplayDetails.addEventListener("toggle", () => {
+    if (refs.autoplayDetails.open) {
+      if (!state.autoplayPlaying) {
+        state.autoplayPlaying = true;
+        refs.autoplayPlayPause.textContent = "Pause";
+      }
+      scheduleAutoplayStep();
+      return;
+    }
+
+    state.autoplayPlaying = false;
+    refs.autoplayPlayPause.textContent = "Play";
+    clearAutoplayTimers();
+  });
+
+  refs.autoplayDetails.open = false;
+  state.autoplayPlaying = refs.autoplayDetails.open;
+  refs.autoplayPlayPause.textContent = state.autoplayPlaying ? "Pause" : "Play";
   renderAutoplayStep();
-  scheduleAutoplayStep();
+  if (state.autoplayPlaying) {
+    scheduleAutoplayStep();
+  }
 }
 
 function setupDecode() {
@@ -277,10 +303,6 @@ function setupDecode() {
     state.decodeDebounceTimer = window.setTimeout(() => {
       decodeCurrentInput();
     }, 180);
-  });
-
-  refs.decodeButton.addEventListener("click", () => {
-    decodeCurrentInput();
   });
 
   refs.copyHexButton.addEventListener("click", async () => {
@@ -305,15 +327,35 @@ function setupDecode() {
 }
 
 function setupVerify() {
+  refs.verifyToggle.addEventListener("click", () => {
+    const willHide = !refs.verifyResults.hidden;
+    refs.verifyResults.hidden = willHide;
+    refs.verifyToggle.textContent = willHide ? "Show details" : "Hide details";
+    refs.verifyToggle.setAttribute("aria-expanded", willHide ? "false" : "true");
+  });
+
   refs.verifyButton.addEventListener("click", () => {
     trackEvent(TRACKING_KEYS.verify);
     const report = verifyCoreVectors();
+    refs.verifyResultsWrap.hidden = false;
     refs.verifySummary.textContent = `Core suite: ${report.passed}/${report.total} passed`;
     refs.verifySummary.className = report.allPassed ? "verify-summary success" : "verify-summary failure";
     refs.verifyResults.innerHTML = report.results
       .map((result) => `<li>${escapeHtml(formatVectorStatusLine(result))}</li>`)
       .join("");
+    refs.verifyResults.hidden = false;
+    refs.verifyToggle.textContent = "Hide details";
+    refs.verifyToggle.setAttribute("aria-expanded", "true");
   });
+}
+
+function setupTooltipAutoFlip() {
+  refs.decodeResultPanel.addEventListener("mouseover", handleTooltipMouseOver);
+  refs.decodeResultPanel.addEventListener("mouseout", handleTooltipMouseOut);
+  refs.decodeResultPanel.addEventListener("focusin", handleTooltipFocusIn);
+  refs.decodeResultPanel.addEventListener("focusout", handleTooltipFocusOut);
+  window.addEventListener("resize", refreshActiveTooltipPosition);
+  window.addEventListener("scroll", refreshActiveTooltipPosition, true);
 }
 
 function decodeInitialSample() {
@@ -324,6 +366,7 @@ function decodeInitialSample() {
 function decodeCurrentInput() {
   const raw = refs.payloadInput.value.trim();
   if (!raw) {
+    hideActiveTooltip();
     refs.decodeFeedback.textContent = "";
     refs.decodeErrorPanel.hidden = true;
     refs.decodeResultPanel.hidden = true;
@@ -365,6 +408,7 @@ function decodeCurrentInput() {
 }
 
 function renderDecodeError(error) {
+  hideActiveTooltip();
   refs.decodeResultPanel.hidden = true;
   setCopyButtonsEnabled(false);
   refs.decodeErrorPanel.hidden = false;
@@ -372,6 +416,149 @@ function renderDecodeError(error) {
   refs.errorWhy.textContent = error?.why ?? "Input does not match supported UET formats.";
   refs.errorFix.textContent = error?.howToFix ?? "Use a valid 8-byte UET in hex or base64.";
   refs.decodeFeedback.textContent = "Decode failed. See details below.";
+}
+
+function handleTooltipMouseOver(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const trigger = target.closest(".tooltip-trigger");
+  if (trigger instanceof HTMLButtonElement) {
+    openTooltip(trigger);
+  }
+}
+
+function handleTooltipMouseOut(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const trigger = target.closest(".tooltip-trigger");
+  if (!(trigger instanceof HTMLButtonElement)) {
+    return;
+  }
+  const relatedTarget = event.relatedTarget;
+  if (relatedTarget instanceof Node && trigger.contains(relatedTarget)) {
+    return;
+  }
+  closeTooltip(trigger);
+}
+
+function handleTooltipFocusIn(event) {
+  const target = event.target;
+  if (target instanceof HTMLButtonElement && target.classList.contains("tooltip-trigger")) {
+    openTooltip(target);
+  }
+}
+
+function handleTooltipFocusOut(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement) || !target.classList.contains("tooltip-trigger")) {
+    return;
+  }
+  const relatedTarget = event.relatedTarget;
+  if (relatedTarget instanceof Node && target.contains(relatedTarget)) {
+    return;
+  }
+  closeTooltip(target);
+}
+
+function openTooltip(trigger) {
+  const tooltip = getTooltipElement(trigger);
+  if (!(tooltip instanceof HTMLElement)) {
+    return;
+  }
+  hideActiveTooltip(trigger);
+  tooltip.classList.add("open");
+  positionTooltip(trigger, tooltip);
+  state.activeTooltipTrigger = trigger;
+}
+
+function closeTooltip(trigger) {
+  const tooltip = getTooltipElement(trigger);
+  if (!(tooltip instanceof HTMLElement)) {
+    return;
+  }
+  tooltip.classList.remove("open");
+  resetTooltipInlinePosition(tooltip);
+  if (state.activeTooltipTrigger === trigger) {
+    state.activeTooltipTrigger = null;
+  }
+}
+
+function hideActiveTooltip(exceptTrigger) {
+  const activeTrigger = state.activeTooltipTrigger;
+  if (!(activeTrigger instanceof HTMLButtonElement)) {
+    return;
+  }
+  if (exceptTrigger instanceof HTMLButtonElement && activeTrigger === exceptTrigger) {
+    return;
+  }
+  closeTooltip(activeTrigger);
+}
+
+function refreshActiveTooltipPosition() {
+  const trigger = state.activeTooltipTrigger;
+  if (!(trigger instanceof HTMLButtonElement)) {
+    return;
+  }
+  if (!document.contains(trigger)) {
+    state.activeTooltipTrigger = null;
+    return;
+  }
+  const tooltip = getTooltipElement(trigger);
+  if (!(tooltip instanceof HTMLElement) || !tooltip.classList.contains("open")) {
+    return;
+  }
+  positionTooltip(trigger, tooltip);
+}
+
+function getTooltipElement(trigger) {
+  const wrap = trigger.closest(".tooltip-wrap");
+  if (!(wrap instanceof HTMLElement)) {
+    return null;
+  }
+  const tooltip = wrap.querySelector(".tooltip-text");
+  if (!(tooltip instanceof HTMLElement)) {
+    return null;
+  }
+  return tooltip;
+}
+
+function positionTooltip(trigger, tooltip) {
+  const viewportPadding = 8;
+  const verticalOffset = 6;
+  const triggerRect = trigger.getBoundingClientRect();
+
+  tooltip.style.visibility = "hidden";
+  tooltip.style.left = "0px";
+  tooltip.style.top = "0px";
+  const tooltipRect = tooltip.getBoundingClientRect();
+
+  let left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2);
+  const maxLeft = window.innerWidth - tooltipRect.width - viewportPadding;
+  left = clamp(left, viewportPadding, Math.max(viewportPadding, maxLeft));
+
+  const spaceBelow = window.innerHeight - triggerRect.bottom - viewportPadding;
+  const spaceAbove = triggerRect.top - viewportPadding;
+  const placeBelow = spaceBelow >= tooltipRect.height || spaceBelow >= spaceAbove;
+
+  let top = placeBelow
+    ? triggerRect.bottom + verticalOffset
+    : triggerRect.top - tooltipRect.height - verticalOffset;
+  const maxTop = window.innerHeight - tooltipRect.height - viewportPadding;
+  top = clamp(top, viewportPadding, Math.max(viewportPadding, maxTop));
+
+  tooltip.style.left = `${Math.round(left)}px`;
+  tooltip.style.top = `${Math.round(top)}px`;
+  tooltip.style.visibility = "";
+}
+
+function resetTooltipInlinePosition(tooltip) {
+  tooltip.style.left = "";
+  tooltip.style.top = "";
+  tooltip.style.visibility = "";
 }
 
 function renderAutoplayStep() {
