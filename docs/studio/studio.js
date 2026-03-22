@@ -12,14 +12,16 @@ import {
   tryEncodeUet,
   verifyEnvelopeHmacHex,
   verifyFullVectors
-} from "./decoder.js";
+} from "./decoder.js?v=20260322p4";
 import {
   buildScenarioFromAdvisor,
   calculateBandwidth,
+  describeRecipientsBandModel,
   deriveBridgeFieldsFromJsonObject,
+  estimateBridgeEnvelopeBytes,
   evaluateProtocols,
   selectStrategy
-} from "./advisor.js";
+} from "./advisor.js?v=20260322p4";
 
 const TRACKING_KEYS = Object.freeze({
   open: "studio-open",
@@ -239,6 +241,66 @@ const BUILD_PRESETS = Object.freeze([
   })
 ]);
 
+const ADVISOR_QUICK_PRESETS = Object.freeze({
+  "emergency-broadcast": Object.freeze({
+    label: "Emergency Broadcast",
+    messageKind: "alert",
+    payloadSizeBytes: 200,
+    payloadUnknown: false,
+    transport: "wifi",
+    recipientsBand: "100-1000",
+    humanReadable: "no",
+    messagesPerDay: 1000
+  }),
+  "iot-telemetry": Object.freeze({
+    label: "IoT Telemetry",
+    messageKind: "telemetry",
+    payloadSizeBytes: 200,
+    payloadUnknown: false,
+    transport: "ble",
+    recipientsBand: "2-10",
+    humanReadable: "no",
+    messagesPerDay: 5000
+  }),
+  "rest-integration": Object.freeze({
+    label: "REST Integration",
+    messageKind: "generic",
+    payloadSizeBytes: 200,
+    payloadUnknown: false,
+    transport: "wifi",
+    recipientsBand: "1",
+    humanReadable: "yes",
+    messagesPerDay: 1000
+  })
+});
+
+const ADVISOR_AUTO_REFRESH_DELAY_MS = 180;
+const STRATEGY_AUTO_REFRESH_DELAY_MS = 180;
+const BRIDGE_MAPPED_ENVELOPE_BYTES = 42;
+const BRIDGE_MAPPING_LABELS = Object.freeze({
+  emergencytype: "emergencyType",
+  eventtype: "eventType",
+  event: "event",
+  type: "type",
+  kind: "kind",
+  priority: "priority",
+  severity: "severity",
+  urgency: "urgency",
+  actionflags: "actionFlags",
+  flags: "flags",
+  actions: "actions",
+  zonehash: "zoneHash",
+  zone: "zone",
+  zoneid: "zoneId",
+  areahash: "areaHash",
+  timestampminutes: "timestampMinutes",
+  timestamp: "timestamp",
+  time: "time",
+  confirmhash: "confirmHash",
+  correlationid: "correlationId",
+  confirm: "confirm"
+});
+
 const state = {
   decodeDebounceTimer: null,
   lastDecoded: null,
@@ -254,6 +316,9 @@ const state = {
   starCtaShown: false,
   advisorEvaluation: null,
   advisorBandwidth: null,
+  advisorAutoRefreshTimer: null,
+  strategyAutoRefreshTimer: null,
+  activeAdvisorPresetId: "",
   bridgeHex: ""
 };
 
@@ -349,9 +414,14 @@ function bindRefs() {
   refs.advisorMessagesDay = mustGet("advisor-messages-day");
   refs.advisorRunButton = mustGet("advisor-run-button");
   refs.advisorTryItButton = mustGet("advisor-try-it-button");
+  refs.advisorPresetButtons = Array.from(document.querySelectorAll("button[data-advisor-preset]"));
   refs.advisorFeedback = mustGet("advisor-feedback");
+  refs.advisorState = mustGet("advisor-state");
+  refs.advisorMessageRatio = mustGet("advisor-message-ratio");
+  refs.advisorRecipientsModelNote = mustGet("advisor-recipients-model-note");
   refs.advisorResultsBody = mustGet("advisor-results-body");
   refs.advisorBandwidth = mustGet("advisor-bandwidth");
+  refs.advisorModelNote = mustGet("advisor-model-note");
   refs.advisorHybrid = mustGet("advisor-hybrid");
 
   refs.strategyRecipientsRange = mustGet("strategy-recipients-range");
@@ -359,12 +429,16 @@ function bindRefs() {
   refs.strategyMessageSize = mustGet("strategy-message-size");
   refs.strategyHasTemplate = mustGet("strategy-has-template");
   refs.strategyHasDictionary = mustGet("strategy-has-dictionary");
-  refs.strategyRunButton = mustGet("strategy-run-button");
+  refs.strategyState = mustGet("strategy-state");
   refs.strategyMode = mustGet("strategy-mode");
   refs.strategyHops = mustGet("strategy-hops");
   refs.strategyReason = mustGet("strategy-reason");
+  refs.strategyLabelDirect = mustGet("strategy-label-direct");
+  refs.strategyLabelCascade = mustGet("strategy-label-cascade");
   refs.strategyValueDirect = mustGet("strategy-value-direct");
   refs.strategyValueCascade = mustGet("strategy-value-cascade");
+  refs.strategyRowDirect = mustGet("strategy-row-direct");
+  refs.strategyRowCascade = mustGet("strategy-row-cascade");
   refs.strategyBarDirect = mustGet("strategy-bar-direct");
   refs.strategyBarCascade = mustGet("strategy-bar-cascade");
 
@@ -374,6 +448,7 @@ function bindRefs() {
   refs.bridgeFeedback = mustGet("bridge-feedback");
   refs.bridgeEcpHex = mustGet("bridge-ecp-hex");
   refs.bridgeSizeSummary = mustGet("bridge-size-summary");
+  refs.bridgeSizePreview = mustGet("bridge-size-preview");
   refs.bridgeCodeBlock = mustGet("bridge-code-block");
 
   refs.codeTabBar = mustGet("code-tab-bar");
@@ -571,9 +646,20 @@ function setupBuild() {
 }
 
 function setupCompare() {
+  const onAdvisorInputChanged = () => {
+    scheduleAdvisorAutoRefresh();
+  };
+
   refs.advisorPayloadUnknown.addEventListener("change", () => {
     syncAdvisorPayloadUnknownState();
+    onAdvisorInputChanged();
   });
+  refs.advisorMessageKind.addEventListener("change", onAdvisorInputChanged);
+  refs.advisorPayloadSize.addEventListener("input", onAdvisorInputChanged);
+  refs.advisorTransport.addEventListener("change", onAdvisorInputChanged);
+  refs.advisorRecipientsBand.addEventListener("change", onAdvisorInputChanged);
+  refs.advisorHumanReadable.addEventListener("change", onAdvisorInputChanged);
+  refs.advisorMessagesDay.addEventListener("input", onAdvisorInputChanged);
 
   refs.advisorRunButton.addEventListener("click", () => {
     runAdvisorEvaluation(true);
@@ -582,16 +668,27 @@ function setupCompare() {
   refs.advisorTryItButton.addEventListener("click", () => {
     applyAdvisorToBuilder();
   });
+  refs.advisorPresetButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const presetId = button.dataset.advisorPreset;
+      if (!presetId) {
+        return;
+      }
+      applyAdvisorPreset(presetId, true);
+    });
+  });
 
   refs.strategyRecipientsRange.addEventListener("input", () => {
     syncStrategyRecipientInputs("range");
+    scheduleStrategyAutoRefresh();
   });
   refs.strategyRecipientsInput.addEventListener("input", () => {
     syncStrategyRecipientInputs("input");
+    scheduleStrategyAutoRefresh();
   });
-  refs.strategyRunButton.addEventListener("click", () => {
-    runStrategySelector(true);
-  });
+  refs.strategyMessageSize.addEventListener("input", scheduleStrategyAutoRefresh);
+  refs.strategyHasTemplate.addEventListener("change", scheduleStrategyAutoRefresh);
+  refs.strategyHasDictionary.addEventListener("change", scheduleStrategyAutoRefresh);
 
   refs.bridgeRunButton.addEventListener("click", () => {
     runJsonBridge(true);
@@ -611,9 +708,62 @@ function setupCompare() {
   });
 
   syncAdvisorPayloadUnknownState();
-  runAdvisorEvaluation(false);
-  runStrategySelector(false);
+  applyAdvisorPreset("emergency-broadcast", false);
   runJsonBridge(false);
+}
+
+function scheduleAdvisorAutoRefresh() {
+  refs.advisorState.textContent = "Auto-refresh active. Inputs changed, updating estimates...";
+  if (state.advisorAutoRefreshTimer !== null) {
+    window.clearTimeout(state.advisorAutoRefreshTimer);
+  }
+  state.advisorAutoRefreshTimer = window.setTimeout(() => {
+    state.advisorAutoRefreshTimer = null;
+    runAdvisorEvaluation(false);
+  }, ADVISOR_AUTO_REFRESH_DELAY_MS);
+}
+
+function scheduleStrategyAutoRefresh() {
+  refs.strategyState.textContent = "Auto-refresh active. Inputs changed, updating selector...";
+  if (state.strategyAutoRefreshTimer !== null) {
+    window.clearTimeout(state.strategyAutoRefreshTimer);
+  }
+  state.strategyAutoRefreshTimer = window.setTimeout(() => {
+    state.strategyAutoRefreshTimer = null;
+    runStrategySelector(true, "selector");
+  }, STRATEGY_AUTO_REFRESH_DELAY_MS);
+}
+
+function applyAdvisorPreset(presetId, trackUsage) {
+  const preset = ADVISOR_QUICK_PRESETS[presetId];
+  if (!preset) {
+    return;
+  }
+
+  setActiveAdvisorPreset(presetId);
+  refs.advisorMessageKind.value = preset.messageKind;
+  refs.advisorPayloadUnknown.checked = preset.payloadUnknown;
+  refs.advisorPayloadSize.value = String(preset.payloadSizeBytes);
+  refs.advisorTransport.value = preset.transport;
+  refs.advisorRecipientsBand.value = preset.recipientsBand;
+  refs.advisorHumanReadable.value = preset.humanReadable;
+  refs.advisorMessagesDay.value = String(preset.messagesPerDay);
+  syncAdvisorPayloadUnknownState();
+  runAdvisorEvaluation(trackUsage);
+  refs.advisorState.textContent = `Preset active: ${preset.label}. Auto-refresh enabled.`;
+
+  if (trackUsage) {
+    trackEvent(`studio-advisor-preset-${sanitizeTrackingToken(presetId)}`);
+  }
+}
+
+function setActiveAdvisorPreset(presetId) {
+  state.activeAdvisorPresetId = presetId;
+  refs.advisorPresetButtons.forEach((button) => {
+    const isActive = button.dataset.advisorPreset === presetId;
+    button.classList.toggle("compare-preset-button-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
 }
 
 function syncAdvisorPayloadUnknownState() {
@@ -637,6 +787,11 @@ function readAdvisorAnswersFromControls() {
 }
 
 function runAdvisorEvaluation(trackUsage) {
+  if (state.advisorAutoRefreshTimer !== null) {
+    window.clearTimeout(state.advisorAutoRefreshTimer);
+    state.advisorAutoRefreshTimer = null;
+  }
+
   const answers = readAdvisorAnswersFromControls();
   const evaluation = evaluateProtocols(answers);
   const bandwidth = calculateBandwidth(answers);
@@ -659,20 +814,50 @@ function runAdvisorEvaluation(trackUsage) {
     .join("");
 
   refs.advisorFeedback.textContent = `Top recommendation: ${evaluation.bestProtocolLabel} (estimated).`;
+  refs.advisorMessageRatio.textContent = bandwidth.ratioSummary;
+  const recipientsModel = describeRecipientsBandModel(evaluation.answers.recipientsBand);
+  refs.advisorRecipientsModelNote.textContent = `${recipientsModel.note} ${recipientsModel.formula}`;
+  refs.advisorRecipientsBand.title = `${recipientsModel.note} ${recipientsModel.formula}`;
   refs.advisorBandwidth.textContent = bandwidth.summary;
+  refs.advisorModelNote.textContent = `${bandwidth.recipientModelNote} ${bandwidth.deliveryModelNote}`;
   refs.advisorHybrid.textContent = evaluation.hybridSuggestion;
-  refs.advisorTryItButton.disabled = false;
+  const ecpIsTop = evaluation.bestProtocolId === "ecp-uet" || evaluation.bestProtocolId === "ecp-envelope";
+  refs.advisorTryItButton.disabled = !ecpIsTop;
+  refs.advisorTryItButton.title = ecpIsTop
+    ? "Build this scenario as a UET payload in the Builder tab."
+    : "Builder is available when ECP is the top recommendation.";
 
-  const ecpForStrategy = evaluation.rows.find((row) => row.protocolId === "ecp-envelope")
-    ?? evaluation.rows.find((row) => row.protocolId === "ecp-uet");
-  if (ecpForStrategy) {
-    refs.strategyMessageSize.value = String(ecpForStrategy.estimatedBytes);
-  }
+  syncStrategyFromAdvisor(evaluation);
+  refs.advisorState.textContent = trackUsage
+    ? "Manual refresh completed (optional). Auto-refresh remains enabled."
+    : "Updated automatically from current inputs.";
 
   if (trackUsage) {
     trackEvent(TRACKING_KEYS.advisor);
     trackEvent(`studio-advisor-result-${sanitizeTrackingToken(evaluation.bestProtocolId)}`);
   }
+}
+
+function syncStrategyFromAdvisor(evaluation) {
+  if (!evaluation || !evaluation.answers) {
+    return;
+  }
+
+  const recipients = clampNumber(evaluation.answers.recipientsCount, 1, 1000, 12);
+  refs.strategyRecipientsInput.value = String(recipients);
+  refs.strategyRecipientsRange.value = String(recipients);
+
+  const strategySourceProtocol = (evaluation.answers.messageKind === "alert" || evaluation.answers.messageKind === "beacon")
+    ? "ecp-uet"
+    : "ecp-envelope";
+  const strategySizeRow = evaluation.rows.find((row) => row.protocolId === strategySourceProtocol)
+    ?? evaluation.rows.find((row) => row.protocolId === "ecp-envelope")
+    ?? evaluation.rows.find((row) => row.protocolId === "ecp-uet");
+  if (strategySizeRow) {
+    refs.strategyMessageSize.value = String(strategySizeRow.estimatedBytes);
+  }
+
+  runStrategySelector(false, "advisor");
 }
 
 function applyAdvisorToBuilder() {
@@ -700,7 +885,12 @@ function syncStrategyRecipientInputs(source) {
   refs.strategyRecipientsRange.value = String(clamped);
 }
 
-function runStrategySelector(trackUsage) {
+function runStrategySelector(trackUsage, source = "selector") {
+  if (state.strategyAutoRefreshTimer !== null) {
+    window.clearTimeout(state.strategyAutoRefreshTimer);
+    state.strategyAutoRefreshTimer = null;
+  }
+
   syncStrategyRecipientInputs("input");
   const result = selectStrategy({
     recipients: refs.strategyRecipientsInput.value,
@@ -709,15 +899,34 @@ function runStrategySelector(trackUsage) {
     hasDictionary: refs.strategyHasDictionary.checked
   });
 
+  const cascadeLabel = result.recipients <= result.defaults.miniCascadeThreshold ? "MiniCascade" : "FullCascade";
+  const cascadeDisplayCostBytes = result.mode === "MiniCascade"
+    ? result.selectedCostBytes
+    : result.cascadeCostBytes;
+  const directLabel = result.mode === "UetOnly" ? "Direct / UetOnly" : "Direct";
+  refs.strategyLabelDirect.textContent = directLabel;
+  refs.strategyLabelCascade.textContent = cascadeLabel;
   refs.strategyMode.textContent = `Selected mode: ${result.mode} (${result.selectedCostBytes} B estimated)`;
   refs.strategyHops.textContent = `Estimated hops: ${result.hopCount} | Effective payload: ${result.effectiveMessageBytes} B`;
   refs.strategyReason.textContent = result.reasoning;
   refs.strategyValueDirect.textContent = `${result.directCostBytes} B`;
-  refs.strategyValueCascade.textContent = `${result.cascadeCostBytes} B`;
+  refs.strategyValueCascade.textContent = `${cascadeDisplayCostBytes} B`;
 
-  const maxCost = Math.max(result.directCostBytes, result.cascadeCostBytes, 1);
+  const maxCost = Math.max(result.directCostBytes, cascadeDisplayCostBytes, 1);
   refs.strategyBarDirect.style.width = `${((result.directCostBytes / maxCost) * 100).toFixed(2)}%`;
-  refs.strategyBarCascade.style.width = `${((result.cascadeCostBytes / maxCost) * 100).toFixed(2)}%`;
+  refs.strategyBarCascade.style.width = `${((cascadeDisplayCostBytes / maxCost) * 100).toFixed(2)}%`;
+
+  const directSelected = result.mode === "Direct" || result.mode === "UetOnly";
+  refs.strategyRowDirect.classList.toggle("strategy-row-selected", directSelected);
+  refs.strategyRowCascade.classList.toggle("strategy-row-selected", !directSelected);
+  refs.strategyBarDirect.classList.toggle("strategy-bar-selected", directSelected);
+  refs.strategyBarDirect.classList.toggle("strategy-bar-muted", !directSelected);
+  refs.strategyBarCascade.classList.toggle("strategy-bar-selected", !directSelected);
+  refs.strategyBarCascade.classList.toggle("strategy-bar-muted", directSelected);
+
+  refs.strategyState.textContent = source === "advisor"
+    ? "Updated automatically from Protocol Advisor inputs."
+    : "Updated automatically from current Strategy Selector inputs.";
 
   if (trackUsage) {
     trackEvent(TRACKING_KEYS.strategy);
@@ -730,6 +939,7 @@ function runJsonBridge(trackUsage) {
     refs.bridgeFeedback.textContent = "Paste JSON payload first.";
     refs.bridgeEcpHex.textContent = "";
     refs.bridgeSizeSummary.textContent = "";
+    refs.bridgeSizePreview.textContent = "";
     refs.bridgeCodeBlock.textContent = "";
     refs.bridgeCopyHexButton.disabled = true;
     state.bridgeHex = "";
@@ -743,6 +953,7 @@ function runJsonBridge(trackUsage) {
     refs.bridgeFeedback.textContent = "Invalid JSON. Fix syntax and try again.";
     refs.bridgeEcpHex.textContent = "";
     refs.bridgeSizeSummary.textContent = "";
+    refs.bridgeSizePreview.textContent = "";
     refs.bridgeCodeBlock.textContent = "";
     refs.bridgeCopyHexButton.disabled = true;
     state.bridgeHex = "";
@@ -755,6 +966,7 @@ function runJsonBridge(trackUsage) {
     refs.bridgeFeedback.textContent = encoded.error?.what ?? "Unable to map JSON to ECP fields.";
     refs.bridgeEcpHex.textContent = "";
     refs.bridgeSizeSummary.textContent = "";
+    refs.bridgeSizePreview.textContent = "";
     refs.bridgeCodeBlock.textContent = "";
     refs.bridgeCopyHexButton.disabled = true;
     state.bridgeHex = "";
@@ -766,15 +978,16 @@ function runJsonBridge(trackUsage) {
   refs.bridgeCopyHexButton.disabled = false;
 
   const jsonBytes = measureUtf8Bytes(rawJson);
-  const ecpBytes = 8;
-  const savingsPercent = jsonBytes <= 0
-    ? 0
-    : Math.max(0, ((jsonBytes - ecpBytes) / jsonBytes) * 100);
-
-  refs.bridgeSizeSummary.textContent = `Estimated conversion: JSON ${jsonBytes} B -> ECP UET ${ecpBytes} B (${savingsPercent.toFixed(2)}% smaller).`;
+  const isUetCompatibleMapping = Boolean(bridgeResult.mapping?.isUetCompatible);
+  const envelopeBytes = isUetCompatibleMapping
+    ? BRIDGE_MAPPED_ENVELOPE_BYTES
+    : estimateBridgeEnvelopeBytes(rawJson, 12);
+  const relativeSizeNote = describeRelativeSizeDelta(jsonBytes, envelopeBytes);
+  refs.bridgeSizeSummary.textContent = `Estimated conversion: JSON ${jsonBytes} B -> ECP Envelope ~${envelopeBytes} B (${relativeSizeNote}).`;
+  refs.bridgeSizePreview.textContent = `${formatBridgeMappingNote(bridgeResult.mapping)} UET mapping preview (internal token only): 8 B.`;
   refs.bridgeCodeBlock.textContent = buildBridgeMigrationCode(rawJson, encoded.value.hex);
   highlightCodeBlock(refs.bridgeCodeBlock);
-  refs.bridgeFeedback.textContent = "JSON mapped to ECP-equivalent token.";
+  refs.bridgeFeedback.textContent = "JSON mapped to ECP envelope estimate with UET preview.";
 
   if (trackUsage) {
     trackEvent(TRACKING_KEYS.bridge);
@@ -785,13 +998,57 @@ function buildBridgeMigrationCode(jsonPayload, expectedHex) {
   const jsonLiteral = JSON.stringify(jsonPayload);
   return `using ECP.Compatibility;
 using System;
+using System.Security.Cryptography;
 
 string jsonPayload = ${jsonLiteral};
-byte[] ecpBytes = JsonBridge.ToEcp(jsonPayload);
+byte[] hmacKey = RandomNumberGenerator.GetBytes(32);
+
+// Signed envelope output (recommended).
+byte[] ecpBytes = JsonBridge.ToEcp(
+    jsonPayload,
+    hmacKey,
+    hmacLength: 12);
 string ecpHex = Convert.ToHexString(ecpBytes);
 
-// Studio reference (estimated mapping): ${expectedHex}
+// Optional unsigned mode (testing only):
+// byte[] unsignedBytes = JsonBridge.ToEcp(jsonPayload, Array.Empty<byte>(), hmacLength: 0);
+
+// Studio UET mapping preview (internal token estimate): ${expectedHex}
 Console.WriteLine(ecpHex);`;
+}
+
+function describeRelativeSizeDelta(sourceBytes, targetBytes) {
+  if (sourceBytes <= 0 && targetBytes <= 0) {
+    return "same size";
+  }
+  if (sourceBytes === targetBytes) {
+    return "same size";
+  }
+  if (sourceBytes <= 0) {
+    return "larger estimate";
+  }
+
+  const percent = Math.abs(((sourceBytes - targetBytes) / sourceBytes) * 100);
+  return targetBytes < sourceBytes
+    ? `${percent.toFixed(2)}% smaller`
+    : `${percent.toFixed(2)}% larger`;
+}
+
+function formatBridgeMappingNote(mapping) {
+  if (mapping?.isUetCompatible) {
+    const previewKeys = (mapping.matchedSignalKeys ?? [])
+      .slice(0, 4)
+      .map((key) => BRIDGE_MAPPING_LABELS[key] ?? key)
+      .join(", ");
+    const suffix = (mapping.matchedSignalKeys ?? []).length > 4 ? ", ..." : "";
+    return `Mapping: UET-compatible (${previewKeys}${suffix}).`;
+  }
+
+  if (mapping?.hasEnvelopePayloadKeys) {
+    return "Mapping: explicit payloadText/payloadBase64 envelope mode.";
+  }
+
+  return "Mapping: generic payload fallback (no UET field signals).";
 }
 
 function setupGenerate() {
@@ -891,7 +1148,8 @@ function getTabFromHash() {
   const rawHash = window.location.hash.startsWith("#")
     ? window.location.hash.slice(1)
     : window.location.hash;
-  const tabName = normalizeTabName(rawHash);
+  const normalizedHash = rawHash.replace(/^\/+/, "");
+  const tabName = normalizeTabName(normalizedHash);
   return tabName || "decode";
 }
 
@@ -949,7 +1207,7 @@ function decodeCurrentInput(options = {}) {
   if (!raw) {
     hideActiveTooltip();
     refs.decodeFeedback.textContent = "";
-    refs.decodeErrorPanel.hidden = true;
+    clearDecodeError();
     refs.decodeResultPanel.hidden = true;
     refs.decodeEnvelopePanel.hidden = true;
     state.lastDecoded = null;
@@ -964,7 +1222,7 @@ function decodeCurrentInput(options = {}) {
     return;
   }
 
-  refs.decodeErrorPanel.hidden = true;
+  clearDecodeError();
   if (response.value.kind === "uet") {
     renderUetDecode(response.value.value);
   } else if (response.value.kind === "envelope") {
@@ -1056,7 +1314,7 @@ async function verifyCurrentEnvelopeHmac() {
 
   const keyHex = refs.envelopeHmacKeyInput.value.trim();
   if (!keyHex) {
-    refs.envelopeHmacFeedback.textContent = "Paste a valid HMAC key in hex format.";
+    refs.envelopeHmacFeedback.textContent = "Insert the hex key from your EnvelopeBuilder or test vector.";
     return;
   }
 
@@ -1084,6 +1342,13 @@ async function verifyCurrentEnvelopeHmac() {
     refs.envelopeHmacBadge.textContent = "HMAC invalid";
     refs.envelopeHmacFeedback.textContent = "Signature mismatch: wrong key or tampered data.";
   }
+}
+
+function clearDecodeError() {
+  refs.decodeErrorPanel.hidden = true;
+  refs.errorWhat.textContent = "";
+  refs.errorWhy.textContent = "";
+  refs.errorFix.textContent = "";
 }
 
 function renderDecodeError(error) {
@@ -1324,6 +1589,7 @@ var token = Ecp.Token(
 byte[] hmacKey = RandomNumberGenerator.GetBytes(32);
 var envelope = Ecp.Envelope()
     .WithType(EmergencyType.${emergencyEnum})
+    // EcpFlags are envelope-level routing/security flags. ActionFlags stay inside the nested UET payload.
     .WithFlags(EcpFlags.NeedsConfirmation | EcpFlags.Broadcast)
     .WithPriority(EcpPriority.${priorityEnum})
     .WithTtl(120)
@@ -1388,6 +1654,9 @@ public class StudioGeneratedTests
         Assert.Equal(EmergencyType.${emergencyEnum}, token.EmergencyType);
         Assert.Equal(EcpPriority.${priorityEnum}, token.Priority);
         Assert.Equal((ActionFlags)${fields.actionFlags}, token.ActionFlags);
+        Assert.Equal(${fields.zoneHash}, token.ZoneHash);
+        Assert.Equal(${fields.timestampMinutes}, token.TimestampMinutes);
+        Assert.Equal(${fields.confirmHash}, token.ConfirmHash);
     }
 }
 `;

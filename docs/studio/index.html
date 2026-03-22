@@ -283,7 +283,7 @@
             </div>
 
             <section class="size-compare" aria-label="Size comparison">
-              <h3>Size comparison for this scenario</h3>
+              <h3>Size comparison for this scenario (estimated)</h3>
               <div class="size-row">
                 <div class="size-row-head">
                   <span>CAP XML</span>
@@ -327,6 +327,11 @@
         <div class="compare-layout">
           <section class="compare-panel" aria-label="Protocol advisor input">
             <h3>Scenario input</h3>
+            <div class="compare-preset-row" aria-label="Quick scenario presets">
+              <button id="advisor-preset-emergency-broadcast" data-advisor-preset="emergency-broadcast" type="button" class="btn-inline-copy compare-preset-button" aria-pressed="false">Emergency Broadcast</button>
+              <button id="advisor-preset-iot-telemetry" data-advisor-preset="iot-telemetry" type="button" class="btn-inline-copy compare-preset-button" aria-pressed="false">IoT Telemetry</button>
+              <button id="advisor-preset-rest-integration" data-advisor-preset="rest-integration" type="button" class="btn-inline-copy compare-preset-button" aria-pressed="false">REST Integration</button>
+            </div>
 
             <label for="advisor-message-kind">1) What are you sending?</label>
             <select id="advisor-message-kind">
@@ -346,9 +351,9 @@
 
             <label for="advisor-transport">3) Transport channel</label>
             <select id="advisor-transport">
-              <option value="wifi">WiFi/Ethernet</option>
+              <option value="wifi" selected>WiFi/Ethernet</option>
               <option value="ble">BLE</option>
-              <option value="lora" selected>LoRa</option>
+              <option value="lora">LoRa</option>
               <option value="satellite">Satellite</option>
               <option value="sms">SMS</option>
               <option value="mixed">Mixed</option>
@@ -358,10 +363,11 @@
             <select id="advisor-recipients-band">
               <option value="1">1</option>
               <option value="2-10">2-10</option>
-              <option value="10-100" selected>10-100</option>
-              <option value="100-1000">100-1000</option>
+              <option value="10-100">10-100</option>
+              <option value="100-1000" selected>100-1000</option>
               <option value="1000+">1000+</option>
             </select>
+            <p id="advisor-recipients-model-note" class="field-help compare-model-note"></p>
 
             <label for="advisor-human-readable">5) Must be human-readable?</label>
             <select id="advisor-human-readable">
@@ -374,10 +380,11 @@
             <input id="advisor-messages-day" type="number" min="1" max="5000000" value="1000">
 
             <div class="inline-actions">
-              <button id="advisor-run-button" type="button" class="btn-primary">Evaluate protocols</button>
               <button id="advisor-try-it-button" type="button" class="btn-secondary" disabled>Try it in Builder &rarr;</button>
+              <button id="advisor-run-button" type="button" class="btn-inline-copy compare-refresh-button">Refresh now (optional)</button>
             </div>
             <p id="advisor-feedback" class="feedback" aria-live="polite"></p>
+            <p id="advisor-state" class="field-help compare-state" aria-live="polite"></p>
           </section>
 
           <section class="compare-panel" aria-label="Protocol advisor output">
@@ -398,7 +405,9 @@
             <p class="field-help">
               Sizes are estimated from typical protocol overhead. For exact measurements, benchmark with your actual payloads.
             </p>
+            <p id="advisor-message-ratio" class="field-help compare-ratio"></p>
             <p id="advisor-bandwidth" class="field-help compare-bandwidth"></p>
+            <p id="advisor-model-note" class="field-help compare-model-note"></p>
             <p id="advisor-hybrid" class="field-help compare-hybrid"></p>
           </section>
         </div>
@@ -407,7 +416,7 @@
           <section class="compare-panel" aria-label="Strategy selector">
             <h3>Strategy Selector</h3>
             <p class="field-help">
-              Uses public SDK defaults (Direct=4, MiniCascade=12, FanOut=2.5)
+              Uses public SDK NeverWorse strategy defaults
               <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Strategy/NeverWorseOptions.cs#L15" target="_blank" rel="noopener noreferrer" aria-label="Verify strategy defaults in source code">🔎</a>
             </p>
 
@@ -429,26 +438,23 @@
               Has dictionary savings
             </label>
 
-            <div class="inline-actions">
-              <button id="strategy-run-button" type="button" class="btn-secondary">Run selector</button>
-            </div>
-
             <p id="strategy-mode" class="feedback" aria-live="polite"></p>
             <p id="strategy-hops" class="field-help"></p>
             <p id="strategy-reason" class="field-help"></p>
+            <p id="strategy-state" class="field-help compare-state" aria-live="polite"></p>
 
             <section class="size-compare">
               <h3>Estimated network cost</h3>
-              <div class="size-row">
+              <div id="strategy-row-direct" class="size-row">
                 <div class="size-row-head">
-                  <span>Direct</span>
+                  <span id="strategy-label-direct">Direct</span>
                   <span id="strategy-value-direct">0 B</span>
                 </div>
                 <div class="size-track"><span id="strategy-bar-direct" class="size-fill size-fill-json"></span></div>
               </div>
-              <div class="size-row">
+              <div id="strategy-row-cascade" class="size-row">
                 <div class="size-row-head">
-                  <span>Cascade</span>
+                  <span id="strategy-label-cascade">FullCascade</span>
                   <span id="strategy-value-cascade">0 B</span>
                 </div>
                 <div class="size-track"><span id="strategy-bar-cascade" class="size-fill size-fill-ecp"></span></div>
@@ -458,7 +464,7 @@
 
           <section class="compare-panel" aria-label="JSON bridge">
             <h3>JSON Bridge</h3>
-            <p class="field-help">Paste JSON, map to ECP-equivalent UET fields, and generate migration code.</p>
+            <p class="field-help">Paste JSON, estimate JsonBridge envelope output, and preview internal UET mapping.</p>
             <textarea id="bridge-json-input" rows="6" spellcheck="false" aria-label="JSON bridge input">{ "event":"Fire", "priority":"Critical", "zoneHash":1001, "timestampMinutes":12345, "confirmHash":0 }</textarea>
             <div class="inline-actions">
               <button id="bridge-run-button" type="button" class="btn-secondary">Convert JSON to ECP</button>
@@ -472,48 +478,10 @@
               </div>
             </div>
             <p id="bridge-size-summary" class="field-help"></p>
+            <p id="bridge-size-preview" class="field-help compare-model-note"></p>
             <pre class="generated-pre"><code id="bridge-code-block" class="language-csharp"></code></pre>
           </section>
         </div>
-
-        <section class="compare-panel" aria-label="SDK coverage">
-          <h3>SDK Package Coverage in Studio</h3>
-          <div class="table-wrap">
-            <table class="decoded-table coverage-table">
-              <thead>
-                <tr>
-                  <th scope="col">Package</th>
-                  <th scope="col">In Studio</th>
-                  <th scope="col">How</th>
-                  <th scope="col">Phase</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td>ECP.Core</td><td>Full interactive</td><td>Encode/decode/envelope/HMAC/code gen</td><td>A+B</td></tr>
-                <tr><td>ECP.Cascade</td><td>Code walkthrough</td><td>Strategy selector + future cascade visualization</td><td>C/E</td></tr>
-                <tr><td>ECP.Compatibility</td><td>Full interactive</td><td>JSON Bridge (JSON -&gt; ECP)</td><td>C</td></tr>
-                <tr><td>ECP.Registry</td><td>Code walkthrough</td><td>Public links + dictionary/template concept</td><td>C</td></tr>
-                <tr><td>ECP.DependencyInjection</td><td>Code walkthrough</td><td>DI Setup snippets in Generate</td><td>B</td></tr>
-                <tr><td>ECP.Standard</td><td>Code walkthrough</td><td>AddEcpStandard() generation pattern</td><td>B</td></tr>
-                <tr><td>ECP.Transport.Abstractions</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
-                <tr><td>ECP.Transport.WebSocket</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
-                <tr><td>ECP.Transport.SignalR</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="compare-panel" aria-label="Claim to code links">
-          <h3>Claim-to-code trace</h3>
-          <ul class="claim-list">
-            <li><span>UET = 8 bytes</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Token/UniversalEmergencyToken.cs#L18" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>uet-fire-critical-001</code></li>
-            <li><span>Envelope header = 22 bytes</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Envelope/EmergencyEnvelope.cs#L22" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>env-signed-uet-h12-001</code></li>
-            <li><span>Magic = 0xEC50</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Envelope/EmergencyEnvelope.cs#L18" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>env-signed-uet-h12-001</code></li>
-            <li><span>HMAC default = 12 bytes (range 8-16)</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Security/EcpSecurity.cs#L17" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>hmac-data-12-002</code></li>
-            <li><span>Canonical benchmark sizes are measured from generated payloads</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/samples/ProofCard/Program.cs#L31" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>ProofCard CLI</code></li>
-            <li><span>NeverWorse defaults: Direct=4, Mini=12, FanOut=2.5</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Strategy/NeverWorseOptions.cs#L15" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>public defaults</code></li>
-          </ul>
-        </section>
       </article>
     </section>
 
@@ -560,6 +528,47 @@
           </div>
           <ul id="verify-results" class="verify-results" aria-live="polite"></ul>
         </div>
+
+        <div class="verify-subgrid">
+          <section class="compare-panel" aria-label="SDK coverage">
+            <h3>SDK Package Coverage in Studio</h3>
+            <div class="table-wrap">
+              <table class="decoded-table coverage-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Package</th>
+                    <th scope="col">In Studio</th>
+                    <th scope="col">How</th>
+                    <th scope="col">Phase</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>ECP.Core</td><td>Full interactive</td><td>Encode/decode/envelope/HMAC/code gen</td><td>A+B</td></tr>
+                  <tr><td>ECP.Cascade</td><td>Code walkthrough</td><td>Strategy selector + future cascade visualization</td><td>C/E</td></tr>
+                  <tr><td>ECP.Compatibility</td><td>Full interactive</td><td>JSON Bridge (JSON -&gt; ECP)</td><td>C</td></tr>
+                  <tr><td>ECP.Registry</td><td>Code walkthrough</td><td>Public links + dictionary/template concept</td><td>C</td></tr>
+                  <tr><td>ECP.DependencyInjection</td><td>Code walkthrough</td><td>DI Setup snippets in Generate</td><td>B</td></tr>
+                  <tr><td>ECP.Standard</td><td>Code walkthrough</td><td>AddEcpStandard() generation pattern</td><td>B</td></tr>
+                  <tr><td>ECP.Transport.Abstractions</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
+                  <tr><td>ECP.Transport.WebSocket</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
+                  <tr><td>ECP.Transport.SignalR</td><td>Concept only</td><td>Architecture references</td><td>C</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="compare-panel" aria-label="Claim to code links">
+            <h3>Claim-to-code trace</h3>
+            <ul class="claim-list">
+              <li><span>UET = 8 bytes</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Token/UniversalEmergencyToken.cs#L18" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>uet-fire-critical-001</code></li>
+              <li><span>Envelope header = 22 bytes</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Envelope/EmergencyEnvelope.cs#L22" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>env-signed-uet-h12-001</code></li>
+              <li><span>Magic = 0xEC50</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Envelope/EmergencyEnvelope.cs#L18" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>env-signed-uet-h12-001</code></li>
+              <li><span>HMAC default = 12 bytes (range 8-16)</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Security/EcpSecurity.cs#L17" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>hmac-data-12-002</code></li>
+              <li><span>Canonical benchmark sizes are measured from generated payloads</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/samples/ProofCard/Program.cs#L31" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>ProofCard CLI</code></li>
+              <li><span>NeverWorse strategy defaults</span> <a class="claim-link" href="https://github.com/Egonex-Code/ecp-protocol/blob/main/src/ECP.Core/Strategy/NeverWorseOptions.cs#L15" target="_blank" rel="noopener noreferrer">🔎 Source</a> <code>public defaults</code></li>
+            </ul>
+          </section>
+        </div>
       </article>
     </section>
   </main>
@@ -596,6 +605,6 @@
   <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-csharp.min.js"></script>
-  <script type="module" src="./studio.js"></script>
+  <script type="module" src="./studio.js?v=20260322p4"></script>
 </body>
 </html>

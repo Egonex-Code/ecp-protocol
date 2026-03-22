@@ -40,6 +40,39 @@ const MESSAGE_COMPLEXITY = Object.freeze({
   "generic": 1.35
 });
 
+const TRANSPORT_NETWORK_MODEL = Object.freeze({
+  "wifi": Object.freeze({
+    label: "WiFi/Ethernet",
+    overhead: Object.freeze({ "json": 54, "ecp-uet": 28, "ecp-envelope": 32 }),
+    retry: Object.freeze({ json: 1.01, ecp: 1.01 })
+  }),
+  "ble": Object.freeze({
+    label: "BLE",
+    overhead: Object.freeze({ "json": 20, "ecp-uet": 12, "ecp-envelope": 15 }),
+    retry: Object.freeze({ json: 1.08, ecp: 1.05 })
+  }),
+  "lora": Object.freeze({
+    label: "LoRa",
+    overhead: Object.freeze({ "json": 18, "ecp-uet": 10, "ecp-envelope": 13 }),
+    retry: Object.freeze({ json: 1.14, ecp: 1.09 })
+  }),
+  "satellite": Object.freeze({
+    label: "Satellite",
+    overhead: Object.freeze({ "json": 126, "ecp-uet": 86, "ecp-envelope": 90 }),
+    retry: Object.freeze({ json: 1.08, ecp: 1.05 })
+  }),
+  "sms": Object.freeze({
+    label: "SMS",
+    overhead: Object.freeze({ "json": 22, "ecp-uet": 14, "ecp-envelope": 17 }),
+    retry: Object.freeze({ json: 1.12, ecp: 1.08 })
+  }),
+  "mixed": Object.freeze({
+    label: "Mixed",
+    overhead: Object.freeze({ "json": 42, "ecp-uet": 24, "ecp-envelope": 28 }),
+    retry: Object.freeze({ json: 1.05, ecp: 1.03 })
+  })
+});
+
 const EMERGENCY_TYPE_LOOKUP = Object.freeze({
   fire: 0,
   evacuation: 1,
@@ -77,6 +110,35 @@ const ACTION_FLAG_BITS = Object.freeze({
   notifyexternal: 128
 });
 
+const BRIDGE_UET_SIGNAL_KEYS = Object.freeze([
+  "emergencytype",
+  "eventtype",
+  "event",
+  "type",
+  "kind",
+  "priority",
+  "severity",
+  "urgency",
+  "actionflags",
+  "flags",
+  "actions",
+  "zonehash",
+  "zone",
+  "zoneid",
+  "areahash",
+  "timestampminutes",
+  "timestamp",
+  "time",
+  "confirmhash",
+  "correlationid",
+  "confirm"
+]);
+
+const BRIDGE_ENVELOPE_PAYLOAD_KEYS = Object.freeze([
+  "payloadtext",
+  "payloadbase64"
+]);
+
 function clamp(value, minValue, maxValue) {
   if (value < minValue) {
     return minValue;
@@ -108,8 +170,139 @@ function normalizeOption(rawValue, allowedValues, fallbackValue) {
   return allowedValues.includes(normalized) ? normalized : fallbackValue;
 }
 
+function normalizeBridgeKey(rawKey) {
+  return String(rawKey || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]/g, "");
+}
+
+function detectBridgeMappingMode(sourceObject) {
+  const normalizedKeys = new Set(
+    Object.keys(sourceObject)
+      .map((key) => normalizeBridgeKey(key))
+      .filter(Boolean)
+  );
+
+  const matchedSignalKeys = BRIDGE_UET_SIGNAL_KEYS
+    .filter((key) => normalizedKeys.has(key));
+  const hasEnvelopePayloadKeys = BRIDGE_ENVELOPE_PAYLOAD_KEYS
+    .some((key) => normalizedKeys.has(key));
+  const isUetCompatible = matchedSignalKeys.length > 0 && !hasEnvelopePayloadKeys;
+
+  return {
+    isUetCompatible,
+    hasEnvelopePayloadKeys,
+    matchedSignalKeys
+  };
+}
+
 function getRecipientsRepresentative(recipientsBand) {
   return RECIPIENT_REPRESENTATIVE[recipientsBand] ?? RECIPIENT_REPRESENTATIVE["2-10"];
+}
+
+function measureUtf8Bytes(text) {
+  return new TextEncoder().encode(String(text)).length;
+}
+
+function estimateBase64DecodedLength(base64Text) {
+  const compact = String(base64Text || "").replaceAll(/\s+/g, "");
+  if (!compact || compact.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(compact)) {
+    return -1;
+  }
+
+  let padding = 0;
+  if (compact.endsWith("==")) {
+    padding = 2;
+  } else if (compact.endsWith("=")) {
+    padding = 1;
+  }
+  return Math.max(0, ((compact.length / 4) * 3) - padding);
+}
+
+export function describeRecipientsBandModel(rawRecipientsBand) {
+  const recipientsBand = normalizeOption(
+    rawRecipientsBand,
+    ["1", "2-10", "10-100", "100-1000", "1000+"],
+    "2-10"
+  );
+  const representative = getRecipientsRepresentative(recipientsBand);
+
+  if (recipientsBand === "1") {
+    return {
+      recipientsBand,
+      representative,
+      formula: "Exact value: 1 recipient.",
+      note: "Recipient model: band \"1\" uses exact count 1."
+    };
+  }
+
+  if (recipientsBand.includes("-")) {
+    const [minText, maxText] = recipientsBand.split("-");
+    const minValue = Number.parseInt(minText, 10);
+    const maxValue = Number.parseInt(maxText, 10);
+    return {
+      recipientsBand,
+      representative,
+      formula: `Midpoint formula: (${minValue} + ${maxValue}) / 2 = ${representative}.`,
+      note: `Recipient model: band "${recipientsBand}" uses midpoint ${representative}.`
+    };
+  }
+
+  return {
+    recipientsBand,
+    representative,
+    formula: `Conservative representative value: ${representative}.`,
+    note: `Recipient model: band "${recipientsBand}" uses representative count ${representative}.`
+  };
+}
+
+export function estimateBridgeEnvelopeBytes(rawJson, hmacLength = 12) {
+  const jsonText = String(rawJson ?? "");
+  const jsonBytes = measureUtf8Bytes(jsonText);
+
+  let payloadBytes = jsonBytes;
+  try {
+    const parsed = JSON.parse(jsonText);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const payloadText = parsed.payloadText;
+      const payloadBase64 = parsed.payloadBase64;
+
+      if (typeof payloadText === "string") {
+        payloadBytes = measureUtf8Bytes(payloadText);
+      } else if (typeof payloadBase64 === "string" && payloadBase64.trim()) {
+        const decodedLength = estimateBase64DecodedLength(payloadBase64);
+        if (decodedLength >= 0) {
+          payloadBytes = decodedLength;
+        }
+      }
+    }
+  } catch (_) {
+    payloadBytes = jsonBytes;
+  }
+
+  const sanitizedHmacLength = clamp(
+    Number.isFinite(Number(hmacLength)) ? Math.round(Number(hmacLength)) : 12,
+    0,
+    16
+  );
+  const clampedPayloadBytes = clamp(payloadBytes, 0, 65535);
+  return 22 + clampedPayloadBytes + sanitizedHmacLength;
+}
+
+function getTransportNetworkProfile(transport) {
+  return TRANSPORT_NETWORK_MODEL[transport] ?? TRANSPORT_NETWORK_MODEL.wifi;
+}
+
+function estimateEcpDeliveryUnits(answers, ecpBytes) {
+  const strategy = selectStrategy({
+    recipients: answers.recipientsCount,
+    messageSizeBytes: ecpBytes,
+    hasTemplate: false,
+    hasDictionary: false
+  });
+  const units = strategy.selectedCostBytes / Math.max(strategy.effectiveMessageBytes, 1);
+  return Math.max(1, Number(units.toFixed(2)));
 }
 
 function getSemanticScores(messageKind) {
@@ -555,21 +748,57 @@ export function calculateBandwidth(rawAnswers = {}) {
     : "ecp-envelope";
   const jsonBytes = rowsById.json.estimatedBytes;
   const ecpBytes = rowsById[ecpProtocolId].estimatedBytes;
+  const ecpProtocolLabel = PROTOCOL_LABELS[ecpProtocolId];
+  const transportProfile = getTransportNetworkProfile(answers.transport);
+  const recipientLabel = answers.recipientsCount === 1 ? "recipient" : "recipients";
 
-  const jsonDailyBytes = jsonBytes * answers.messagesPerDay * answers.recipientsCount;
-  const ecpDailyBytes = ecpBytes * answers.messagesPerDay * answers.recipientsCount;
-  const savingsPercent = jsonDailyBytes <= 0
+  const perMessageSavingsPercent = jsonBytes <= 0
+    ? 0
+    : Math.max(0, ((jsonBytes - ecpBytes) / jsonBytes) * 100);
+
+  const jsonDeliveryBytes = jsonBytes + (transportProfile.overhead.json ?? 0);
+  const ecpDeliveryBytes = ecpBytes + (transportProfile.overhead[ecpProtocolId] ?? 0);
+  const jsonDeliveryUnits = answers.recipientsCount;
+  const ecpDeliveryUnits = estimateEcpDeliveryUnits(answers, ecpBytes);
+
+  const jsonDailyBytes = Math.round(
+    jsonDeliveryBytes * answers.messagesPerDay * jsonDeliveryUnits * (transportProfile.retry.json ?? 1)
+  );
+  const ecpDailyBytes = Math.round(
+    ecpDeliveryBytes * answers.messagesPerDay * ecpDeliveryUnits * (transportProfile.retry.ecp ?? 1)
+  );
+
+  const dailySavingsPercent = jsonDailyBytes <= 0
     ? 0
     : Math.max(0, ((jsonDailyBytes - ecpDailyBytes) / jsonDailyBytes) * 100);
+  const isJsonTop = evaluation.bestProtocolId === "json";
+  const ecpUnitsLabel = Number.isInteger(ecpDeliveryUnits) ? String(ecpDeliveryUnits) : ecpDeliveryUnits.toFixed(2);
+
+  const ratioSummary = isJsonTop
+    ? `Per-message payload estimate: JSON ${jsonBytes} B, ${ecpProtocolLabel} ${ecpBytes} B.`
+    : `Per-message payload estimate: JSON ${jsonBytes} B, ${ecpProtocolLabel} ${ecpBytes} B (${perMessageSavingsPercent.toFixed(2)}% smaller).`;
+
+  const dailySummaryBase = `Daily transfer estimate (${transportProfile.label}, ${answers.messagesPerDay} msg/day x ${answers.recipientsCount} ${recipientLabel}): JSON ~ ${formatBytes(jsonDailyBytes)}/day, ${ecpProtocolLabel} ~ ${formatBytes(ecpDailyBytes)}/day.`;
+  const summary = isJsonTop
+    ? `${dailySummaryBase} JSON remains top for this profile.`
+    : `${dailySummaryBase} Estimated savings ${dailySavingsPercent.toFixed(2)}%/day.`;
 
   return {
     answers,
+    isJsonTop,
+    ecpProtocolId,
+    ecpProtocolLabel,
     jsonDailyBytes,
     ecpDailyBytes,
-    savingsPercent,
+    savingsPercent: dailySavingsPercent,
+    perMessageSavingsPercent,
+    dailySavingsPercent,
     jsonDailyLabel: formatBytes(jsonDailyBytes),
     ecpDailyLabel: formatBytes(ecpDailyBytes),
-    summary: `With your scenario (${answers.messagesPerDay} msg/day x ${answers.recipientsCount} recipients), JSON ~ ${formatBytes(jsonDailyBytes)}/day, ECP ~ ${formatBytes(ecpDailyBytes)}/day, savings ${savingsPercent.toFixed(2)}%/day.`
+    ratioSummary,
+    summary,
+    recipientModelNote: `Recipient band "${answers.recipientsBand}" uses representative count ${answers.recipientsCount}.`,
+    deliveryModelNote: `Delivery units per message (fan-out model): JSON ${jsonDeliveryUnits}, ${ecpProtocolLabel} ${ecpUnitsLabel}.`
   };
 }
 
@@ -798,6 +1027,7 @@ export function deriveBridgeFieldsFromJsonObject(jsonValue) {
     ? jsonValue
     : {};
   const sourceText = JSON.stringify(sourceObject);
+  const mapping = detectBridgeMappingMode(sourceObject);
 
   const emergencyType = parseEmergencyType(
     readFirstDefined(sourceObject, ["emergencyType", "eventType", "event", "type", "kind"])
@@ -831,7 +1061,8 @@ export function deriveBridgeFieldsFromJsonObject(jsonValue) {
       zoneHash,
       timestampMinutes,
       confirmHash
-    }
+    },
+    mapping
   };
 }
 
