@@ -40,12 +40,10 @@
 <body>
   <header class="top-shell">
     <div class="shell-inner">
-      <a class="brand-link" href="../proof/" aria-label="Back to ECP Proof">
-        <img class="brand-logo" src="./logoEgonex.png" alt="Egonex" width="140" height="36">
-        <span class="brand-title">ECP Studio</span>
-      </a>
+      <div class="brand-link" aria-label="ECP Studio">
+        <img class="brand-logo" src="./ecp-studio-logo.png" alt="ECP Studio" width="280" height="66">
+      </div>
       <nav class="top-nav" aria-label="Primary links">
-        <a href="../proof/">Proof</a>
         <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">GitHub</a>
       </nav>
     </div>
@@ -53,14 +51,14 @@
 
   <main class="studio-main">
     <nav id="tab-bar" class="tab-bar" role="tablist" aria-label="ECP Studio sections">
-      <button id="tab-button-decode" class="tab-button" role="tab" aria-selected="true" aria-controls="tab-decode" data-tab="decode">Decode</button>
+      <button id="tab-button-compare" class="tab-button" role="tab" aria-selected="true" aria-controls="tab-compare" data-tab="compare">Compare</button>
       <button id="tab-button-build" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-build" data-tab="build">Build</button>
-      <button id="tab-button-compare" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-compare" data-tab="compare">Compare</button>
       <button id="tab-button-generate" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-generate" data-tab="generate">Generate</button>
+      <button id="tab-button-decode" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-decode" data-tab="decode">Decode</button>
       <button id="tab-button-verify" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-verify" data-tab="verify">Verify</button>
     </nav>
 
-    <section id="tab-decode" class="tab-panel tab-active" role="tabpanel" aria-labelledby="tab-button-decode">
+    <section id="tab-decode" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-decode">
       <article class="card decode-card" aria-labelledby="decode-title">
         <header class="card-header">
           <h1 id="decode-title">Paste hex or base64 to decode instantly</h1>
@@ -317,7 +315,7 @@
       </article>
     </section>
 
-    <section id="tab-compare" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-compare">
+    <section id="tab-compare" class="tab-panel tab-active" role="tabpanel" aria-labelledby="tab-button-compare">
       <article class="card compare-card" aria-labelledby="compare-title">
         <header class="card-header">
           <h2 id="compare-title">Protocol Advisor</h2>
@@ -520,12 +518,17 @@
           <p>Runs 34 deterministic vectors (8 UET + 9 Envelope + 7 HMAC + 10 Negative) directly in your browser.</p>
         </header>
         <p class="verify-engine-note">Tests the decoder engine itself, not your input.</p>
-        <button id="verify-button" type="button" class="btn-primary">Verify full suite (34 vectors)</button>
+        <button id="verify-button" type="button" class="btn-primary">Run full suite (34 vectors)</button>
         <div id="verify-results-wrap" class="verify-results-wrap" hidden>
           <div class="verify-results-header">
             <p id="verify-summary" class="verify-summary" aria-live="polite"></p>
             <button id="verify-toggle" type="button" class="btn-inline-copy" aria-expanded="true">Hide details</button>
           </div>
+          <p id="verify-star-cta" class="verify-star-cta" hidden>
+            34/34 passed. If this helped your evaluation, a star on
+            <a id="verify-star-cta-link" href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">GitHub</a>
+            helps other engineers find ECP.
+          </p>
           <ul id="verify-results" class="verify-results" aria-live="polite"></ul>
         </div>
 
@@ -573,38 +576,20 @@
     </section>
   </main>
 
-  <section id="star-cta" class="star-cta" hidden>
-    <div class="star-cta-inner">
-      <p>Getting value from ECP Studio?</p>
-      <a id="star-cta-link" href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">Star on GitHub &rarr;</a>
-    </div>
-  </section>
-
   <footer class="studio-footer">
     <div class="footer-inner">
-      <h2>Resources &amp; Community</h2>
-      <p>New to ECP? <a href="../proof/">See how it works &rarr;</a></p>
-
-      <p>Explore samples:</p>
-      <nav class="footer-links" aria-label="Sample links">
-        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/01-UetBasics" target="_blank" rel="noopener noreferrer">01-UetBasics</a>
-        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/02-EnvelopeSignedRoundtrip" target="_blank" rel="noopener noreferrer">02-EnvelopeRoundtrip</a>
-        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/03-GenericDecodeRouter" target="_blank" rel="noopener noreferrer">03-DecodeRouter</a>
-        <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/04-DiAndKeyRing" target="_blank" rel="noopener noreferrer">04-DI&amp;KeyRing</a>
-      </nav>
-
-      <p>Need support? <a href="https://github.com/Egonex-Code/ecp-protocol/discussions" target="_blank" rel="noopener noreferrer">Ask in GitHub Discussions</a></p>
-      <p>Want to contribute? <a href="https://github.com/Egonex-Code/ecp-protocol/issues/new/choose" target="_blank" rel="noopener noreferrer">Open an issue</a></p>
-      <p>NuGet: <code>dotnet add package ECP.Core</code></p>
-      <p>GitHub: <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">github.com/Egonex-Code/ecp-protocol</a></p>
-      <p>License: Apache 2.0</p>
-      <p>Built by <a href="https://www.egonex-group.com" target="_blank" rel="noopener noreferrer">Egonex S.R.L.</a> - Enterprise emergency communication</p>
+      <p><strong>Samples:</strong> <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/01-UetBasics" target="_blank" rel="noopener noreferrer">01-UetBasics</a> | <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/02-EnvelopeSignedRoundtrip" target="_blank" rel="noopener noreferrer">02-EnvelopeRoundtrip</a> | <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/03-GenericDecodeRouter" target="_blank" rel="noopener noreferrer">03-DecodeRouter</a> | <a href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/04-DiAndKeyRing" target="_blank" rel="noopener noreferrer">04-DI&amp;KeyRing</a></p>
+      <p><strong>Support:</strong> <a href="https://github.com/Egonex-Code/ecp-protocol/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a> | <a href="https://github.com/Egonex-Code/ecp-protocol/issues/new/choose" target="_blank" rel="noopener noreferrer">Open an issue</a></p>
+      <p><strong>Install:</strong> <code>dotnet add package ECP.Core</code></p>
+      <p><strong>Repo:</strong> <a href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">github.com/Egonex-Code/ecp-protocol</a></p>
+      <p><strong>License:</strong> Apache 2.0</p>
+      <p class="footer-signature">Maintained by <a class="footer-signature-link" href="https://egonex-group.com/ecp" target="_blank" rel="noopener noreferrer" aria-label="Egonex ECP page"><img class="footer-signature-logo" src="./logoEgonex.png" alt="Egonex" width="88" height="24"></a></p>
     </div>
   </footer>
 
   <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-csharp.min.js"></script>
-  <script type="module" src="./studio.js?v=20260322p4"></script>
+  <script type="module" src="./studio.js?v=20260322p6"></script>
 </body>
 </html>

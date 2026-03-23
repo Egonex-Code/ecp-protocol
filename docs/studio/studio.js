@@ -12,7 +12,7 @@ import {
   tryEncodeUet,
   verifyEnvelopeHmacHex,
   verifyFullVectors
-} from "./decoder.js?v=20260322p4";
+} from "./decoder.js?v=20260322p6";
 import {
   buildScenarioFromAdvisor,
   calculateBandwidth,
@@ -21,7 +21,7 @@ import {
   estimateBridgeEnvelopeBytes,
   evaluateProtocols,
   selectStrategy
-} from "./advisor.js?v=20260322p4";
+} from "./advisor.js?v=20260322p6";
 
 const TRACKING_KEYS = Object.freeze({
   open: "studio-open",
@@ -37,10 +37,10 @@ const TRACKING_KEYS = Object.freeze({
 });
 
 const TAB_NAMES = Object.freeze([
-  "decode",
-  "build",
   "compare",
+  "build",
   "generate",
+  "decode",
   "verify"
 ]);
 
@@ -313,7 +313,7 @@ const state = {
   activeCodeTab: "one-liner",
   generatedCodeByTab: Object.create(null),
   lastVerifyReport: null,
-  starCtaShown: false,
+  verifyStarCtaShown: false,
   advisorEvaluation: null,
   advisorBandwidth: null,
   advisorAutoRefreshTimer: null,
@@ -464,9 +464,9 @@ function bindRefs() {
   refs.verifySummary = mustGet("verify-summary");
   refs.verifyResults = mustGet("verify-results");
   refs.verifyToggle = mustGet("verify-toggle");
+  refs.verifyStarCta = mustGet("verify-star-cta");
+  refs.verifyStarCtaLink = mustGet("verify-star-cta-link");
 
-  refs.starCta = mustGet("star-cta");
-  refs.starCtaLink = mustGet("star-cta-link");
 }
 
 function setupTracking() {
@@ -476,7 +476,7 @@ function setupTracking() {
     trackEvent(`studio-ref-${refCode}`);
   }
 
-  refs.starCtaLink.addEventListener("click", () => {
+  refs.verifyStarCtaLink.addEventListener("click", () => {
     trackEvent(TRACKING_KEYS.ctaStar);
   });
 }
@@ -509,7 +509,7 @@ function setupTabs() {
   });
 
   if (!window.location.hash) {
-    history.replaceState(null, "", "#decode");
+    history.replaceState(null, "", "#compare");
   }
 
   applyHashTab(true);
@@ -521,7 +521,7 @@ function setupDecode() {
       window.clearTimeout(state.decodeDebounceTimer);
     }
     state.decodeDebounceTimer = window.setTimeout(() => {
-      decodeCurrentInput({ trackDecode: true, revealCta: true });
+      decodeCurrentInput({ trackDecode: true });
     }, 180);
   });
 
@@ -702,9 +702,6 @@ function setupCompare() {
     refs.bridgeFeedback.textContent = copied
       ? "Bridge ECP hex copied."
       : "Clipboard denied. Select the ECP hex value and copy manually.";
-    if (copied) {
-      revealStarCta();
-    }
   });
 
   syncAdvisorPayloadUnknownState();
@@ -1079,9 +1076,6 @@ function setupGenerate() {
     refs.generateFeedback.textContent = copied
       ? "Code copied."
       : "Clipboard denied. Select the code and copy manually.";
-    if (copied) {
-      revealStarCta();
-    }
   });
 
   refs.generateCopyAllButton.addEventListener("click", async () => {
@@ -1094,13 +1088,12 @@ function setupGenerate() {
     refs.generateFeedback.textContent = copied
       ? "Complete code bundle copied."
       : "Clipboard denied. Select the code and copy manually.";
-    if (copied) {
-      revealStarCta();
-    }
   });
 }
 
 function setupVerify() {
+  refs.verifyStarCta.hidden = true;
+
   refs.verifyToggle.addEventListener("click", () => {
     const willHide = !refs.verifyResults.hidden;
     refs.verifyResults.hidden = willHide;
@@ -1122,7 +1115,7 @@ function setupVerify() {
     renderVerifyReport(report);
 
     refs.verifyButton.disabled = false;
-    refs.verifyButton.textContent = originalText ?? "Verify full suite (34 vectors)";
+    refs.verifyButton.textContent = originalText ?? "Run full suite (34 vectors)";
   });
 }
 
@@ -1150,7 +1143,7 @@ function getTabFromHash() {
     : window.location.hash;
   const normalizedHash = rawHash.replace(/^\/+/, "");
   const tabName = normalizeTabName(normalizedHash);
-  return tabName || "decode";
+  return tabName || "compare";
 }
 
 function normalizeTabName(value) {
@@ -1164,7 +1157,7 @@ function normalizeCodeTabName(value) {
 }
 
 function activateTab(tabName, trackChange) {
-  const normalizedTab = normalizeTabName(tabName) || "decode";
+  const normalizedTab = normalizeTabName(tabName) || "compare";
   if (state.activeTab === normalizedTab) {
     return;
   }
@@ -1197,12 +1190,11 @@ function activateTab(tabName, trackChange) {
 
 function decodeInitialSample() {
   refs.payloadInput.value = DEFAULT_SAMPLE_UET_HEX;
-  decodeCurrentInput({ trackDecode: false, revealCta: false });
+  decodeCurrentInput({ trackDecode: false });
 }
 
 function decodeCurrentInput(options = {}) {
   const trackDecode = options.trackDecode !== false;
-  const revealCta = options.revealCta !== false;
   const raw = refs.payloadInput.value.trim();
   if (!raw) {
     hideActiveTooltip();
@@ -1233,10 +1225,6 @@ function decodeCurrentInput(options = {}) {
   if (trackDecode && state.lastTrackedDecodedHex !== valueHex) {
     trackEvent(TRACKING_KEYS.decode);
     state.lastTrackedDecodedHex = valueHex;
-  }
-
-  if (revealCta) {
-    revealStarCta();
   }
 }
 
@@ -1702,6 +1690,14 @@ function renderVerifyReport(report) {
   refs.verifySummary.textContent = `Full suite: ${report.passed}/${report.total} passed`;
   refs.verifySummary.className = report.allPassed ? "verify-summary success" : "verify-summary failure";
 
+  const shouldShowStarCta = report.allPassed && report.total === 34;
+  if (shouldShowStarCta || state.verifyStarCtaShown) {
+    refs.verifyStarCta.hidden = false;
+    state.verifyStarCtaShown = true;
+  } else {
+    refs.verifyStarCta.hidden = true;
+  }
+
   const rows = [];
   report.groups.forEach((group) => {
     const icon = group.allPassed ? "✅" : "❌";
@@ -1767,14 +1763,6 @@ function buildDebugBundle(mode) {
   lines.push(`Browser: ${navigator.userAgent}`);
   lines.push("---");
   return lines.join("\n");
-}
-
-function revealStarCta() {
-  if (state.starCtaShown) {
-    return;
-  }
-  state.starCtaShown = true;
-  refs.starCta.hidden = false;
 }
 
 function renderDecodedRows(decoded) {
