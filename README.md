@@ -531,7 +531,7 @@ This software uses standard cryptographic algorithms (AES-GCM, HMAC-SHA256) prov
 - [ECP Studio source](https://github.com/Egonex-Code/ecp-protocol/tree/main/docs/studio) — static tool source in this repository
 - [Studio estimation model](https://github.com/Egonex-Code/ecp-protocol/blob/main/docs/studio/estimation-model.md) — formulas behind Compare and bandwidth estimates
 - [Source code](https://github.com/Egonex-Code/ecp-protocol/tree/main/src) — free package implementations published in this repository
-- [Samples](https://github.com/Egonex-Code/ecp-protocol/tree/main/samples) — 8 runnable console applications
+- [Samples](https://github.com/Egonex-Code/ecp-protocol/tree/main/samples) — 9 runnable console applications
 - [Benchmarks](https://github.com/Egonex-Code/ecp-protocol/tree/main/benchmarks) — BenchmarkDotNet project, reproducible
 - [Tests](https://github.com/Egonex-Code/ecp-protocol/tree/main/tests) — 10 public test projects
 - [Test vectors](https://github.com/Egonex-Code/ecp-protocol/tree/main/test-vectors) — deterministic JSON vectors for cross-platform verification

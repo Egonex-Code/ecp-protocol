@@ -348,7 +348,7 @@
     <div class="inner">
       <div class="eyebrow">ECP Proof Card</div>
       <h1>Why does it take 669 bytes to tell a computer there is a fire?</h1>
-      <p class="sub">ECP sends the same machine alert in 8 bytes. Fire, flood, security, IoT threshold, fleet beacon — same compact format.</p>
+      <p class="sub">ECP encodes the core alert fields in 8 bytes. Fire, flood, security, IoT threshold, fleet beacon — same compact format.</p>
 
       <section class="metrics" aria-label="Byte comparison">
         <article class="metric" data-key="cap" data-value="669">
@@ -378,7 +378,7 @@
 
       <section class="impact" aria-live="polite">
         <strong id="impact-text">98.8% less data</strong>
-        <div>Same alert, many scenarios.</div>
+        <div>Same core fields, many scenarios.</div>
       </section>
 
       <section class="meta">
@@ -394,6 +394,7 @@
       <div class="copy-status" id="copy-status"></div>
 
       <p class="note">
+        UET (8 bytes) is the compact unsigned token. For cryptographic signing, use an Envelope (typically 42 bytes with HMAC).
         These values are live-measured in the CLI ProofCard tool. This page shows the canonical FIRE scenario for instant sharing.
         Clone the repository to verify independently, including the raw payloads via <code>-- --show-payload</code>.
       </p>
