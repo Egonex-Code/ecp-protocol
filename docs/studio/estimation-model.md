@@ -42,11 +42,12 @@ Let:
   - `ecpInnerPayload = round(max(12, payloadBytes * 0.24 + complexity * 10))`
 - `ecp-envelope = 22 + ecpInnerPayload + 12`
 
-### JSON / Protobuf / MessagePack / CAP XML
+### JSON / Protobuf / MessagePack / CBOR / CAP XML
 
 - `json = round(max(48, payloadBytes * 1.08 + 28 + complexity * 22))`
 - `protobuf = round(max(16, payloadBytes * 0.58 + 14 + complexity * 10))`
 - `messagepack = round(max(14, payloadBytes * 0.72 + 12 + complexity * 12))`
+- `cbor = round(max(12, payloadBytes * 0.68 + 10 + complexity * 10))`
 - `cap-xml = round(max(240, payloadBytes * 2.8 + 220 + complexity * 30))`
 
 ## Daily bandwidth estimate

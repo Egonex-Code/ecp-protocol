@@ -20,7 +20,8 @@ const PROTOCOL_ORDER = Object.freeze([
   "json",
   "protobuf",
   "cap-xml",
-  "messagepack"
+  "messagepack",
+  "cbor"
 ]);
 
 const PROTOCOL_LABELS = Object.freeze({
@@ -29,7 +30,8 @@ const PROTOCOL_LABELS = Object.freeze({
   "json": "JSON",
   "protobuf": "Protobuf",
   "cap-xml": "CAP XML",
-  "messagepack": "MessagePack"
+  "messagepack": "MessagePack",
+  "cbor": "CBOR"
 });
 
 const MESSAGE_COMPLEXITY = Object.freeze({
@@ -314,7 +316,8 @@ function getSemanticScores(messageKind) {
         "json": 76,
         "protobuf": 72,
         "cap-xml": 83,
-        "messagepack": 70
+        "messagepack": 70,
+        "cbor": 73
       };
     case "telemetry":
       return {
@@ -323,7 +326,8 @@ function getSemanticScores(messageKind) {
         "json": 71,
         "protobuf": 88,
         "cap-xml": 36,
-        "messagepack": 84
+        "messagepack": 84,
+        "cbor": 88
       };
     case "command":
       return {
@@ -332,7 +336,8 @@ function getSemanticScores(messageKind) {
         "json": 73,
         "protobuf": 91,
         "cap-xml": 30,
-        "messagepack": 81
+        "messagepack": 81,
+        "cbor": 86
       };
     case "beacon":
       return {
@@ -341,7 +346,8 @@ function getSemanticScores(messageKind) {
         "json": 69,
         "protobuf": 74,
         "cap-xml": 20,
-        "messagepack": 78
+        "messagepack": 78,
+        "cbor": 81
       };
     default:
       return {
@@ -350,7 +356,8 @@ function getSemanticScores(messageKind) {
         "json": 78,
         "protobuf": 92,
         "cap-xml": 34,
-        "messagepack": 84
+        "messagepack": 84,
+        "cbor": 89
       };
   }
 }
@@ -363,7 +370,8 @@ function getReadabilityScores(humanReadable) {
       "json": 95,
       "protobuf": 49,
       "cap-xml": 88,
-      "messagepack": 45
+      "messagepack": 45,
+      "cbor": 43
     };
   }
   if (humanReadable === "no") {
@@ -373,7 +381,8 @@ function getReadabilityScores(humanReadable) {
       "json": 58,
       "protobuf": 84,
       "cap-xml": 34,
-      "messagepack": 80
+      "messagepack": 80,
+      "cbor": 85
     };
   }
   return {
@@ -382,7 +391,8 @@ function getReadabilityScores(humanReadable) {
     "json": 78,
     "protobuf": 82,
     "cap-xml": 62,
-    "messagepack": 79
+    "messagepack": 79,
+    "cbor": 82
   };
 }
 
@@ -394,7 +404,8 @@ function getTransportScores(transport) {
       "json": 42,
       "protobuf": 72,
       "cap-xml": 20,
-      "messagepack": 74
+      "messagepack": 74,
+      "cbor": 79
     };
   }
   if (transport === "lora") {
@@ -404,7 +415,8 @@ function getTransportScores(transport) {
       "json": 34,
       "protobuf": 68,
       "cap-xml": 14,
-      "messagepack": 70
+      "messagepack": 70,
+      "cbor": 75
     };
   }
   if (transport === "satellite") {
@@ -414,7 +426,8 @@ function getTransportScores(transport) {
       "json": 40,
       "protobuf": 70,
       "cap-xml": 18,
-      "messagepack": 72
+      "messagepack": 72,
+      "cbor": 76
     };
   }
   if (transport === "sms") {
@@ -424,7 +437,8 @@ function getTransportScores(transport) {
       "json": 38,
       "protobuf": 66,
       "cap-xml": 10,
-      "messagepack": 68
+      "messagepack": 68,
+      "cbor": 72
     };
   }
   if (transport === "mixed") {
@@ -434,7 +448,8 @@ function getTransportScores(transport) {
       "json": 72,
       "protobuf": 80,
       "cap-xml": 40,
-      "messagepack": 79
+      "messagepack": 79,
+      "cbor": 81
     };
   }
   return {
@@ -443,7 +458,8 @@ function getTransportScores(transport) {
     "json": 85,
     "protobuf": 83,
     "cap-xml": 65,
-    "messagepack": 80
+    "messagepack": 80,
+    "cbor": 82
   };
 }
 
@@ -457,6 +473,7 @@ function estimateProtocolSizes(answers) {
   const jsonBytes = Math.round(Math.max(48, (payloadBytes * 1.08) + 28 + (complexity * 22)));
   const protobufBytes = Math.round(Math.max(16, (payloadBytes * 0.58) + 14 + (complexity * 10)));
   const messagePackBytes = Math.round(Math.max(14, (payloadBytes * 0.72) + 12 + (complexity * 12)));
+  const cborBytes = Math.round(Math.max(12, (payloadBytes * 0.68) + 10 + (complexity * 10)));
   const capXmlBytes = Math.round(Math.max(240, (payloadBytes * 2.8) + 220 + (complexity * 30)));
 
   return {
@@ -465,7 +482,8 @@ function estimateProtocolSizes(answers) {
     "json": jsonBytes,
     "protobuf": protobufBytes,
     "cap-xml": capXmlBytes,
-    "messagepack": messagePackBytes
+    "messagepack": messagePackBytes,
+    "cbor": cborBytes
   };
 }
 
@@ -525,6 +543,7 @@ function applyHonestyAdjustments(scoreByProtocol, answers) {
     scoreByProtocol.json -= 10;
     scoreByProtocol["cap-xml"] -= 16;
     scoreByProtocol.protobuf += 2;
+    scoreByProtocol.cbor += 4;
   }
 
   const protobufFriendly = (answers.messageKind === "generic" || answers.messageKind === "command" || answers.messageKind === "telemetry")
@@ -533,6 +552,7 @@ function applyHonestyAdjustments(scoreByProtocol, answers) {
     && (answers.transport === "wifi" || answers.transport === "mixed");
   if (protobufFriendly) {
     scoreByProtocol.protobuf += 12;
+    scoreByProtocol.cbor += 6;
     scoreByProtocol["ecp-envelope"] -= 5;
     scoreByProtocol.json -= 4;
   }
@@ -593,6 +613,13 @@ function buildReason(protocolId, answers, isTopProtocol) {
     return "Compact binary alternative to JSON with flexible object mapping.";
   }
 
+  if (protocolId === "cbor") {
+    if (isTopProtocol) {
+      return "CBOR (RFC 8949) is a compact binary alternative to JSON, widely used in IoT and constrained environments.";
+    }
+    return "CBOR (RFC 8949) is a compact binary alternative to JSON for machine-oriented payloads and constrained links.";
+  }
+
   return "CAP XML remains interoperable in legacy alerting ecosystems, but estimated size overhead is high.";
 }
 
@@ -605,6 +632,9 @@ function buildHybridSuggestion(bestProtocolId, answers) {
   }
   if (bestProtocolId === "messagepack") {
     return "Hybrid suggestion: MessagePack for internal compact payloads, JSON for public-facing APIs.";
+  }
+  if (bestProtocolId === "cbor") {
+    return "Hybrid suggestion: use CBOR for constrained machine channels and keep JSON where readability and ecosystem familiarity matter.";
   }
   if (bestProtocolId === "cap-xml") {
     return "Hybrid suggestion: keep CAP XML where interoperability is mandatory, and bridge to ECP internally for transport efficiency.";

@@ -509,7 +509,7 @@ function setupTabs() {
   });
 
   if (!window.location.hash) {
-    history.replaceState(null, "", "#compare");
+    history.replaceState(null, "", `#${getDefaultTabForEntry()}`);
   }
 
   applyHashTab(true);
@@ -1143,7 +1143,16 @@ function getTabFromHash() {
     : window.location.hash;
   const normalizedHash = rawHash.replace(/^\/+/, "");
   const tabName = normalizeTabName(normalizedHash);
-  return tabName || "compare";
+  return tabName || getDefaultTabForEntry();
+}
+
+function getDefaultTabForEntry() {
+  return hasRefQueryParam() ? "compare" : "decode";
+}
+
+function hasRefQueryParam() {
+  const params = new URLSearchParams(window.location.search);
+  return params.has("ref");
 }
 
 function normalizeTabName(value) {
@@ -1157,7 +1166,7 @@ function normalizeCodeTabName(value) {
 }
 
 function activateTab(tabName, trackChange) {
-  const normalizedTab = normalizeTabName(tabName) || "compare";
+  const normalizedTab = normalizeTabName(tabName) || getDefaultTabForEntry();
   if (state.activeTab === normalizedTab) {
     return;
   }
