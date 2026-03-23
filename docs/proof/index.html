@@ -4,25 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ECP Proof - 669 vs 8</title>
-  <meta name="description" content="Canonical ECP comparison: CAP XML 669 bytes, JSON 270 bytes, ECP UET 8 bytes.">
-  <meta property="og:title" content="669 bytes for a fire alert. ECP does it in 8.">
-  <meta property="og:description" content="CAP XML: 669 bytes. JSON: 270 bytes. ECP: 8 bytes. Same fire alert. Verify it yourself.">
+  <meta name="description" content="Canonical ECP benchmark: CAP XML 669 bytes, JSON 270 bytes, ECP UET 8 bytes. One machine alert, many scenarios.">
+  <meta property="og:title" content="669 bytes for one machine alert. ECP does it in 8.">
+  <meta property="og:description" content="CAP XML: 669 bytes. JSON: 270 bytes. ECP: 8 bytes. Benchmark shown with a canonical fire scenario, applicable to emergency, telemetry, command, and beacon alerts.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://egonex-code.github.io/ecp-protocol/proof/">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="669 bytes for a fire alert. ECP does it in 8.">
-  <meta name="twitter:description" content="CAP XML: 669 bytes. JSON: 270 bytes. ECP: 8 bytes. Same fire alert. Verify it yourself.">
+  <meta name="twitter:title" content="669 bytes for one machine alert. ECP does it in 8.">
+  <meta name="twitter:description" content="CAP XML: 669 bytes. JSON: 270 bytes. ECP: 8 bytes. Benchmark shown with a canonical fire scenario, applicable to emergency, telemetry, command, and beacon alerts.">
   <style>
     :root {
-      --bg: #0a1020;
-      --bg-soft: #141d35;
+      --bg-dark: #0c1929;
+      --bg-dark-mid: #132742;
+      --bg-dark-deep: #060d18;
       --text: #e9eeff;
       --muted: #a8b2d5;
       --cap: #ff6b6b;
       --json: #ffd166;
       --ecp: #31e08b;
       --accent: #67a2ff;
-      --border: rgba(255, 255, 255, 0.14);
+      --border: rgba(255, 255, 255, 0.12);
+      --border-light: rgba(255, 255, 255, 0.16);
+      --top-shell-height: 72px;
     }
 
     * {
@@ -34,18 +37,74 @@
       min-height: 100vh;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
       color: var(--text);
+      background: var(--bg-dark);
+      position: relative;
+      isolation: isolate;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 24px 24px;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -2;
       background:
-        radial-gradient(circle at 12% 18%, rgba(103, 162, 255, 0.22), transparent 40%),
-        radial-gradient(circle at 85% 10%, rgba(49, 224, 139, 0.12), transparent 35%),
-        linear-gradient(160deg, #050a18 0%, #0a1020 40%, #121f3f 100%);
-      display: grid;
-      place-items: center;
-      padding: 24px;
+        radial-gradient(circle at 25% 15%, rgba(68, 114, 196, 0.24), transparent 46%),
+        radial-gradient(circle at 75% 78%, rgba(19, 39, 66, 0.62), transparent 52%),
+        radial-gradient(circle at 84% 22%, rgba(245, 158, 11, 0.08), transparent 40%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    .top-shell {
+      position: sticky;
+      top: 0;
+      z-index: 1200;
+      width: 100%;
+      min-height: var(--top-shell-height);
+      border-bottom: 1px solid var(--border);
+      background: rgba(12, 25, 41, 0.92);
+      backdrop-filter: blur(10px);
+    }
+
+    .shell-inner {
+      width: min(1080px, 100% - 2rem);
+      margin: 0 auto;
+      min-height: var(--top-shell-height);
+      padding: 0.65rem 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-link {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-logo {
+      display: block;
+      width: auto;
+      height: 46px;
     }
 
     .card {
       width: min(980px, 100%);
-      background: linear-gradient(160deg, rgba(20, 29, 53, 0.95), rgba(8, 13, 28, 0.96));
+      margin-top: 8px;
+      background: linear-gradient(160deg, rgba(20, 29, 53, 0.95), rgba(6, 13, 24, 0.96));
       border: 1px solid var(--border);
       border-radius: 20px;
       box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
@@ -53,7 +112,7 @@
     }
 
     .inner {
-      padding: 28px;
+      padding: 20px;
     }
 
     .eyebrow {
@@ -61,33 +120,36 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       font-size: 0.78rem;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       font-weight: 700;
     }
 
     h1 {
-      margin: 0 0 8px;
+      margin: 0 0 6px;
       line-height: 1.16;
-      font-size: clamp(1.55rem, 3vw, 2.3rem);
+      font-size: clamp(1.26rem, 2.28vw, 1.68rem);
       letter-spacing: -0.02em;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-wrap: balance;
     }
 
     .sub {
-      margin: 0 0 22px;
+      margin: 0 0 14px;
       color: var(--muted);
-      font-size: 1rem;
+      font-size: 0.95rem;
     }
 
     .metrics {
       display: grid;
-      gap: 14px;
-      margin-bottom: 18px;
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
     .metric {
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px;
+      padding: 10px;
       background: rgba(255, 255, 255, 0.02);
     }
 
@@ -131,23 +193,29 @@
     .bar.ecp { background: linear-gradient(90deg, #39e49e, #20be79); }
 
     .impact {
-      margin: 18px 0 22px;
-      padding: 16px;
+      margin: 12px 0 14px;
+      padding: 12px;
       border: 1px solid var(--border);
       border-radius: 12px;
-      background: rgba(49, 224, 139, 0.07);
+      background: rgba(103, 162, 255, 0.08);
     }
 
     .impact strong {
-      font-size: 1.22rem;
+      font-size: 1.14rem;
     }
 
     .meta {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 18px;
-      font-size: 0.94rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 14px;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
       color: var(--muted);
+    }
+
+    .meta > div {
+      white-space: nowrap;
     }
 
     .meta code {
@@ -159,90 +227,128 @@
     .actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin: 0 0 22px;
     }
 
-    button,
-    .link-btn {
-      border: 0;
+    .action-link {
+      border: 1px solid transparent;
       border-radius: 10px;
-      padding: 12px 16px;
+      padding: 10px 14px;
       font-weight: 700;
-      font-size: 0.96rem;
-      cursor: pointer;
+      font-size: 0.9rem;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
     }
 
-    button {
-      background: #4f7fff;
+    .action-link-primary {
+      background: #4472c4;
+      border-color: #4472c4;
       color: #fff;
     }
 
-    button:hover {
-      filter: brightness(1.05);
+    .action-link-primary:hover {
+      background: #345a9e;
+      border-color: #345a9e;
     }
 
-    .link-btn {
+    .action-link-secondary {
       background: rgba(255, 255, 255, 0.08);
-      border: 1px solid var(--border);
+      border-color: var(--border-light);
       color: var(--text);
     }
 
-    .star-btn {
-      background: linear-gradient(90deg, #ffcc4d, #ffb11f);
-      border: 1px solid rgba(255, 204, 77, 0.5);
-      color: #1b1300;
-      font-weight: 800;
+    .action-link-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
     }
 
-    .star-btn:hover {
-      filter: brightness(1.04);
+    .copy-link {
+      margin: 4px 0 10px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .copy-link:hover {
+      color: #fff;
     }
 
     .copy-status {
       min-height: 1.2em;
+      margin-bottom: 4px;
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.86rem;
     }
 
     .note {
-      margin-top: 8px;
+      margin-top: 4px;
       color: var(--muted);
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       line-height: 1.45;
       border-top: 1px dashed var(--border);
-      padding-top: 12px;
+      padding-top: 8px;
     }
 
     .cli {
-      margin-top: 12px;
+      margin-top: 8px;
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 12px;
+      padding: 10px;
       background: rgba(255, 255, 255, 0.02);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       color: #c8d4fb;
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       white-space: pre-wrap;
     }
 
     @media (max-width: 640px) {
       .inner {
-        padding: 20px;
+        padding: 16px;
+      }
+
+      .shell-inner {
+        width: min(100% - 1.2rem, 100%);
+      }
+
+      .brand-logo {
+        height: 42px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      :root {
+        --top-shell-height: 76px;
+      }
+
+      .brand-logo {
+        height: 50px;
       }
     }
   </style>
 </head>
 <body>
+  <header class="top-shell" aria-label="Proof header">
+    <div class="shell-inner">
+      <div class="brand-link" aria-label="ECP Studio">
+        <img class="brand-logo" src="../studio/ecp-studio-logo.png" alt="ECP Studio" width="280" height="66">
+      </div>
+    </div>
+  </header>
   <main class="card">
     <div class="inner">
-      <div class="eyebrow">ECP Proof Card - Canonical FIRE Scenario</div>
+      <div class="eyebrow">ECP Proof Card</div>
       <h1>Why does it take 669 bytes to tell a computer there is a fire?</h1>
-      <p class="sub">ECP does the same core machine alert in 8 bytes. Emergency-ready, not emergency-only — useful wherever bytes are expensive.</p>
+      <p class="sub">ECP sends the same machine alert in 8 bytes. Fire, flood, security, IoT threshold, fleet beacon — same compact format.</p>
 
       <section class="metrics" aria-label="Byte comparison">
         <article class="metric" data-key="cap" data-value="669">
@@ -272,7 +378,7 @@
 
       <section class="impact" aria-live="polite">
         <strong id="impact-text">98.8% less data</strong>
-        <div>Same canonical FIRE vector. Visualized in seconds.</div>
+        <div>Same alert, many scenarios.</div>
       </section>
 
       <section class="meta">
@@ -281,11 +387,10 @@
       </section>
 
       <section class="actions">
-        <button id="copy-btn" type="button">Copy result</button>
-        <a class="link-btn" href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/ProofCard" target="_blank" rel="noopener noreferrer">Run it yourself (CLI)</a>
-        <a class="link-btn" href="../studio/">Explore how it works</a>
-        <a class="link-btn star-btn" id="star-cta-link" href="https://github.com/Egonex-Code/ecp-protocol" target="_blank" rel="noopener noreferrer">Like this? Star on GitHub</a>
+        <a class="action-link action-link-primary" href="../studio/?ref=proof">Compare protocols live &rarr;</a>
+        <a class="action-link action-link-secondary" href="https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/ProofCard" target="_blank" rel="noopener noreferrer">Verify in CLI (ProofCard)</a>
       </section>
+      <button id="copy-btn" class="copy-link" type="button">Copy result for sharing</button>
       <div class="copy-status" id="copy-status"></div>
 
       <p class="note">
@@ -295,7 +400,9 @@
 
       <div class="cli">git clone https://github.com/Egonex-Code/ecp-protocol
 cd ecp-protocol/samples/ProofCard
-dotnet run</div>
+dotnet run
+
+dotnet add package ECP.Core</div>
     </div>
   </main>
 
@@ -335,7 +442,6 @@ dotnet run</div>
 
       const copyBtn = document.getElementById("copy-btn");
       const copyStatus = document.getElementById("copy-status");
-      const starCtaLink = document.getElementById("star-cta-link");
 
       copyBtn.addEventListener("click", async function () {
         const shareText = [
@@ -353,12 +459,6 @@ dotnet run</div>
           copyStatus.textContent = "Copy failed. You can still select and copy manually.";
         }
       });
-
-      if (starCtaLink) {
-        starCtaLink.addEventListener("click", function () {
-          trackStarCtaClick();
-        });
-      }
 
       function animateMetric(key, targetValue, maxValue, delayMs) {
         const barEl = document.getElementById(key + "-bar");
@@ -415,25 +515,6 @@ dotnet run</div>
           }).catch(function () {
             // Ignore telemetry failures to keep the page resilient.
           });
-        });
-      }
-
-      function trackStarCtaClick() {
-        if (!shouldTrackVisit()) {
-          return;
-        }
-
-        const endpoint =
-          "https://countapi.mileshilliard.com/api/v1/hit/" +
-          encodeURIComponent("ecp-proof-v1-cta-star");
-
-        fetch(endpoint, {
-          method: "GET",
-          cache: "no-store",
-          mode: "no-cors",
-          keepalive: true
-        }).catch(function () {
-          // Ignore telemetry failures to keep the page resilient.
         });
       }
 
