@@ -9,8 +9,19 @@ A binary protocol for emergency communications.
 
 ---
 
+## Fast track (first 60 seconds)
+
+- Install now: `dotnet add package ECP.Core`
+- Compare protocols and generate snippets: [ECP Studio](https://egonex-code.github.io/ecp-protocol/studio/)
+- Verify the size claims locally: [ProofCard sample](https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/ProofCard)
+- Need wire details: [Wire format specification](https://github.com/Egonex-Code/ecp-protocol/blob/main/docs/specification/wire-format.md)
+- Need deterministic verification inputs: [Test vectors](https://github.com/Egonex-Code/ecp-protocol/tree/main/test-vectors)
+
+---
+
 ## Table of contents
 
+- [Fast track (first 60 seconds)](#fast-track-first-60-seconds)
 - [Safety-Critical Use Notice](#safety-critical-use-notice)
 - [What is ECP?](#what-is-ecp)
 - [Quick start](#quick-start)
@@ -78,6 +89,20 @@ byte[] alert = Ecp.Alert(EmergencyType.Fire, zoneHash: 1, priority: EcpPriority.
 
 That's it. `alert` contains the emergency type, priority, zone, timestamp, and action flags in 8 bytes.
 Want to see the size difference? Run `dotnet run` in `samples/ProofCard` for a visual comparison.
+
+> [!NOTE]
+> `Ecp.Alert(...)` uses the current timestamp when `timestampMinutes` is omitted, so the resulting hex changes over time.
+> For deterministic hex (for example, to match test vectors), pass fixed values for `timestampMinutes` and `confirmHash`, or call `UniversalEmergencyToken.Create(...)` with fixed fields.
+>
+> ```csharp
+> byte[] deterministic = Ecp.Alert(
+>     EmergencyType.Fire,
+>     zoneHash: 1,
+>     priority: EcpPriority.Critical,
+>     actionFlags: ActionFlags.None,
+>     timestampMinutes: 12345,
+>     confirmHash: 0);
+> ```
 
 ---
 
@@ -433,7 +458,7 @@ Test vectors and source tests are available in [`test-vectors/`](https://github.
 
 We're a small team and this is a young protocol. If you find issues, inconsistencies, or have questions about these numbers, we genuinely want to hear from you.
 
-Found it useful? A [star on the repo](https://github.com/Egonex-Code/ecp-protocol) helps other engineers find it — that's the single best way to support the project.
+Found it useful? A [star on the repo](https://github.com/Egonex-Code/ecp-protocol) helps other engineers discover ECP.
 
 ---
 
@@ -502,6 +527,9 @@ This software uses standard cryptographic algorithms (AES-GCM, HMAC-SHA256) prov
 **In this repository:**
 
 - [Wire format specification](https://github.com/Egonex-Code/ecp-protocol/blob/main/docs/specification/wire-format.md)
+- [ECP Studio (live: compare, decode, generate)](https://egonex-code.github.io/ecp-protocol/studio/)
+- [ECP Studio source](https://github.com/Egonex-Code/ecp-protocol/tree/main/docs/studio) — static tool source in this repository
+- [Studio estimation model](https://github.com/Egonex-Code/ecp-protocol/blob/main/docs/studio/estimation-model.md) — formulas behind Compare and bandwidth estimates
 - [Source code](https://github.com/Egonex-Code/ecp-protocol/tree/main/src) — free package implementations published in this repository
 - [Samples](https://github.com/Egonex-Code/ecp-protocol/tree/main/samples) — 8 runnable console applications
 - [Benchmarks](https://github.com/Egonex-Code/ecp-protocol/tree/main/benchmarks) — BenchmarkDotNet project, reproducible
