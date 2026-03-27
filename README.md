@@ -6,6 +6,7 @@ A binary protocol for emergency communications.
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](https://github.com/Egonex-Code/ecp-protocol/blob/main/LICENSE.txt)
 [![Patent](https://img.shields.io/badge/Patent-Pending-orange)](#patent-and-license)
+[![Security: Snyk monitored](https://img.shields.io/badge/security-Snyk_monitored-brightgreen?logo=snyk)](https://snyk.io/org/egonex-code)
 
 ---
 
