@@ -5,7 +5,7 @@ Runnable console applications demonstrating core ECP SDK features. Each sample i
 ## Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
-- Repository dependencies restored locally (samples use `ProjectReference`, no ECP NuGet packages required)
+- Repository dependencies restored locally (most samples use `ProjectReference`; `ProofCard` uses NuGet to stay standalone)
 
 ## Quick start
 
@@ -36,10 +36,12 @@ This script builds and runs each sample as a `.dll` via `dotnet`, avoiding direc
 | 06 | [ECP.Sample.Minimal](ECP.Sample.Minimal/) | Minimal/embedded usage with compact token workflow | ECP.Core |
 | 07 | [ECP.Sample.MultiTenant](ECP.Sample.MultiTenant/) | Tenant isolation, key separation, and geo-quorum basics | ECP.Core, ECP.Standard |
 | 08 | [ECP.Sample.Playground](ECP.Sample.Playground/) | Strategy selection playground (recipient count vs payload size) | ECP.Core |
+| 09 | [ProofCard](ProofCard/) | Visual proof card comparing CAP XML, JSON, and ECP sizes | ECP.Core (NuGet) |
 
 ## Notes
 
 - All HMAC keys in these samples are **randomly generated for demonstration only**. In production, use properly managed cryptographic keys.
+- `ProofCard` is intentionally NuGet-based so it can run as a standalone sample outside the full solution layout.
 - For the full wire format specification, see [docs/specification/wire-format.md](../docs/specification/wire-format.md).
 - For security policy and responsible disclosure, see [SECURITY.md](../SECURITY.md).
 
