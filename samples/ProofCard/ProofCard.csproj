@@ -8,6 +8,6 @@
     <UseAppHost>false</UseAppHost>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="ECP.Core" Version="2.0.5" />
+    <PackageReference Include="ECP.Core" Version="2.0.6" />
   </ItemGroup>
 </Project>
