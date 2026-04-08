@@ -18,11 +18,14 @@ const string RepositoryUrl = "github.com/Egonex-Code/ecp-protocol";
 bool showPayload = HasFlag(args, "--show-payload");
 
 FireScenario scenario = CreateCanonicalFireScenario();
+string scenarioType = scenario.EmergencyType.ToString();
+string scenarioTypeUpper = scenarioType.ToUpperInvariant();
+string scenarioTypeLower = scenarioType.ToLowerInvariant();
 string capXml = BuildCapXml(scenario);
 string json = BuildJson(scenario);
 ValidateGeneratedPayloads(capXml, json);
 byte[] ecpAlert = Ecp.Alert(
-    EmergencyType.Fire,
+    scenario.EmergencyType,
     zoneHash: scenario.ZoneHash,
     priority: EcpPriority.Critical,
     timestampMinutes: 12345,
@@ -45,7 +48,7 @@ string verifiedOn = string.Concat(
 
 string[] lines =
 [
-    "\"Why does it take 669 bytes to tell a computer there's a fire?\"",
+    string.Concat("\"Why does it take 669 bytes to tell a computer there's a ", scenarioTypeLower, "?\""),
     string.Empty,
     BuildMetricLine("CAP XML", capBytes, maxBytes, MaxBarWidth),
     BuildMetricLine("JSON", jsonBytes, maxBytes, MaxBarWidth),
@@ -56,7 +59,7 @@ string[] lines =
         reduction.ToString("0.0", CultureInfo.InvariantCulture),
         "% less data (CAP XML vs ECP UET)."),
     "Method: all values are measured live from generated UTF-8 payloads.",
-    "Vector: canonical FIRE profile aligned with public benchmark sizes.",
+    string.Concat("Vector: canonical ", scenarioTypeUpper, " profile aligned with public benchmark sizes."),
     string.Concat("Scenario: ", scenario.ScenarioName, " | ZoneHash: ", scenario.ZoneHash.ToString(CultureInfo.InvariantCulture)),
     string.Concat("Proof hash: ", proofHash),
     string.Empty,
@@ -76,7 +79,7 @@ string[] lines =
         ecpBytes.ToString(CultureInfo.InvariantCulture),
         "B."),
     string.Concat(
-        "Same FIRE scenario measured live in CLI. ",
+        string.Concat("Same ", scenarioTypeUpper, " scenario measured live in CLI. "),
         reduction.ToString("0.0", CultureInfo.InvariantCulture),
         "% less vs CAP. Proof ",
         proofHash,
@@ -98,6 +101,7 @@ static FireScenario CreateCanonicalFireScenario()
         Identifier: "ECP-DEMO-20260319-0001",
         Sender: "ops@egonex.local",
         SentUtc: "2026-03-19T08:00:00Z",
+        EmergencyType: EmergencyType.Fire,
         ScenarioName: "FIRE / Building A",
         ZoneHash: 1001,
         ZoneLabel: "Building A",
@@ -108,6 +112,8 @@ static FireScenario CreateCanonicalFireScenario()
 
 static string BuildCapXml(FireScenario scenario)
 {
+    string eventName = scenario.EmergencyType.ToString();
+
     return string.Concat(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
         "<alert xmlns=\"urn:oasis:names:tc:emergency:cap:1.2\">",
@@ -119,7 +125,7 @@ static string BuildCapXml(FireScenario scenario)
         "<scope>Public</scope>",
         "<info>",
         "<category>Safety</category>",
-        "<event>Fire</event>",
+        "<event>", eventName, "</event>",
         "<urgency>Immediate</urgency>",
         "<severity>Severe</severity>",
         "<certainty>Observed</certainty>",
@@ -133,10 +139,12 @@ static string BuildCapXml(FireScenario scenario)
 
 static string BuildJson(FireScenario scenario)
 {
+    string eventName = scenario.EmergencyType.ToString();
+
     return string.Concat(
         "{\"id\":\"", EscapeJson(scenario.Identifier),
         "\",\"sent\":\"", EscapeJson(scenario.SentUtc),
-        "\",\"event\":\"Fire\"",
+        "\",\"event\":\"", EscapeJson(eventName), "\"",
         ",\"priority\":\"Critical\"",
         ",\"zone\":\"", EscapeJson(scenario.ZoneLabel),
         "\",\"zoneHash\":", scenario.ZoneHash.ToString(CultureInfo.InvariantCulture),
@@ -325,6 +333,7 @@ file sealed record FireScenario(
     string Identifier,
     string Sender,
     string SentUtc,
+    EmergencyType EmergencyType,
     string ScenarioName,
     ushort ZoneHash,
     string ZoneLabel,
