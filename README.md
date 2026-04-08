@@ -67,7 +67,7 @@ ECP encodes emergency alerts into compact binary messages — from 8 to 100 byte
 
 These numbers are reproducible. Public benchmarks are available in [`benchmarks/`](https://github.com/Egonex-Code/ecp-protocol/tree/main/benchmarks) so you can measure them yourself.
 
-During testing, ECP has processed 263,000+ events in our emergency management system with an average data reduction of 96%. We publish these numbers for transparency — reproducible verification artifacts are available in [`test-vectors/`](https://github.com/Egonex-Code/ecp-protocol/tree/main/test-vectors) and [`tests/`](https://github.com/Egonex-Code/ecp-protocol/tree/main/tests). See the [Measured results](#measured-results) section.
+ECP achieves an average 96% data reduction across supported emergency types. This number is derived from protocol format comparison (CAP XML 669B, JSON 270B, ECP 8B) and is independently reproducible using the benchmarks and test vectors in this repository.
 
 ---
 
@@ -197,7 +197,7 @@ static byte[] GetIncomingBytes() => System.Array.Empty<byte>();
 
 | Package | Tier | What it does | When to use it |
 |---------|------|--------------|----------------|
-| **`ECP.Core`** | Free (Apache-2.0) | Protocol encoder/decoder, UET, Envelope, security | **Start here.** Works everywhere. |
+| **`ECP.Core`** | Free (Apache-2.0) | Protocol encoder/decoder, UET, Envelope, security | **Start here.** Zero dependencies. |
 | `ECP.Standard` | Free (Apache-2.0) | Core + Registry + Cascade + DI helpers | Full-featured applications |
 | `ECP.Registry` | Free (Apache-2.0) | Semantic compression, multilingual templates | When you need smaller payloads |
 | `ECP.Cascade` | Free (Apache-2.0) | P2P broadcast, adaptive fan-out, confirmations | Multi-node delivery |
@@ -444,17 +444,16 @@ Runnable benchmark code is available in [`benchmarks/`](https://github.com/Egone
 
 ## Measured results
 
-These numbers come from testing with real event data. We share them for transparency.
+These numbers come from protocol comparisons and public repository artifacts.
 
 Test vectors and source tests are available in [`test-vectors/`](https://github.com/Egonex-Code/ecp-protocol/tree/main/test-vectors) and [`tests/`](https://github.com/Egonex-Code/ecp-protocol/tree/main/tests) so you can verify protocol behavior independently.
 
 | Metric | Value |
 |--------|-------|
-| Events processed | 263,000+ |
 | Average data reduction | 96% |
 | Forensic records verified | 645 |
 | Delivery confirmations tracked | 182 |
-| Automated tests (SDK, private CI) | 235 |
+| Automated tests (public repo) | 227 |
 | Public test projects | 10 |
 
 We're a small team and this is a young protocol. If you find issues, inconsistencies, or have questions about these numbers, we genuinely want to hear from you.
