@@ -451,9 +451,7 @@ Test vectors and source tests are available in [`test-vectors/`](https://github.
 | Metric | Value |
 |--------|-------|
 | Average data reduction | 96% |
-| Forensic records verified | 645 |
-| Delivery confirmations tracked | 182 |
-| Automated tests (public repo) | 227 |
+| Automated tests (public repo) | 235 |
 | Public test projects | 10 |
 
 We're a small team and this is a young protocol. If you find issues, inconsistencies, or have questions about these numbers, we genuinely want to hear from you.
