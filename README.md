@@ -12,7 +12,7 @@ A binary protocol for emergency communications.
 
 ## Fast track (first 60 seconds)
 
-- Install now: `dotnet add package ECP.Core`
+- Install: `dotnet add package ECP.Core`
 - Compare protocols and generate snippets: [ECP Studio](https://egonex-code.github.io/ecp-protocol/studio/)
 - Verify the size claims locally: [ProofCard sample](https://github.com/Egonex-Code/ecp-protocol/tree/main/samples/ProofCard)
 - Need wire details: [Wire format specification](https://github.com/Egonex-Code/ecp-protocol/blob/main/docs/specification/wire-format.md)
@@ -438,7 +438,7 @@ Run with [BenchmarkDotNet](https://benchmarkdotnet.org/) on .NET 8.0.
 
 At 262 ns per decode, a single core can process roughly 3.8 million messages per second. Most of that time (~250 ns) is spent on HMAC-SHA256 verification — a deliberate choice to keep integrity verification on by default.
 
-Runnable benchmark code is available in [`benchmarks/`](https://github.com/Egonex-Code/ecp-protocol/tree/main/benchmarks) so you can reproduce these numbers on your own hardware. If your measurements differ significantly, please [open an issue](https://github.com/Egonex-Code/ecp-protocol/issues). We want these numbers to be honest.
+Runnable benchmark code is available in [`benchmarks/`](https://github.com/Egonex-Code/ecp-protocol/tree/main/benchmarks) so you can reproduce these numbers on your own hardware. If your measurements differ significantly, please [open an issue](https://github.com/Egonex-Code/ecp-protocol/issues) with your environment details.
 
 ---
 
@@ -455,8 +455,6 @@ Test vectors and source tests are available in [`test-vectors/`](https://github.
 | Public test projects | 10 |
 
 We're a small team and this is a young protocol. If you find issues, inconsistencies, or have questions about these numbers, we genuinely want to hear from you.
-
-Found it useful? A [star on the repo](https://github.com/Egonex-Code/ecp-protocol) helps other engineers discover ECP.
 
 ---
 
