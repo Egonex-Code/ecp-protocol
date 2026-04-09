@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.0.6] — 2026-04-08
+
+### Added
+- Added `global.json` to pin the .NET SDK baseline to 8.0.100 with
+  `rollForward: latestFeature` for consistent local builds across environments.
+
+### Changed
+- Updated README messaging to remove the unverifiable "events processed" claim
+  and focus measured statements on reproducible repository artifacts.
+- Updated package table wording for `ECP.Core` from "Works everywhere" to
+  "Zero dependencies."
+- Updated `samples/ProofCard/ProofCard.csproj` to reference `ECP.Core` 2.0.6.
+- Updated `samples/README.md` to include `ProofCard` in the sample matrix and
+  clarify that it is intentionally NuGet-based for standalone execution.
+
+### Fixed
+- Made `ProofCard` scenario-related output and payload metadata dynamic so text
+  remains coherent when changing the emergency scenario.
+
+---
+
 ## [2.0.5] — 2026-03-12
 
 ### Improved
