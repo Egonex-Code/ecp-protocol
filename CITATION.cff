@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use ECP in academic or industrial work, please cite it as below."
+title: "ECP — Emergency Communication Protocol"
+abstract: "Compact binary protocol for emergency and IoT communications. Provides 8-byte tokens, 22-byte signed envelopes with optional HMAC-SHA256 integrity, and zero external dependencies on .NET 8."
+authors:
+  - name: "Egonex S.R.L."
+    address: "Rome, Italy"
+    website: "https://egonex-group.com"
+version: "2.0.6"
+date-released: "2026-04-08"
+url: "https://github.com/Egonex-Code/ecp-protocol"
+repository-code: "https://github.com/Egonex-Code/ecp-protocol"
+license: Apache-2.0
+keywords:
+  - emergency communication
+  - binary protocol
+  - LPWAN
+  - IoT
+  - LoRa
+  - real-time
+  - HMAC-SHA256
+  - .NET
